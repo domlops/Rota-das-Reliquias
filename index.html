@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rota das Reliquias</title>
+    <link rel="stylesheet" href="styles/main.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="play-area">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Projeto academico com algoritmos classicos</p>
+            <h1>Rota das Reliquias</h1>
+            <p class="subtitle">
+              Explore um mapa compacto, colete reliquias e use a rota mais
+              eficiente para voltar a base.
+            </p>
+          </div>
+          <button id="routeButton" class="primary-button" type="button">
+            Mostrar rota sugerida
+          </button>
+        </header>
+
+        <canvas
+          id="gameCanvas"
+          width="960"
+          height="540"
+          aria-label="Mapa inicial do jogo"
+        ></canvas>
+      </section>
+
+      <aside class="side-panel">
+        <section class="panel-block">
+          <h2>Status atual</h2>
+          <dl class="status-list">
+            <div>
+              <dt>Modo da rota</dt>
+              <dd id="routeMode">Preview academico</dd>
+            </div>
+            <div>
+              <dt>Distancia demo</dt>
+              <dd id="routeDistance">Oculta</dd>
+            </div>
+            <div>
+              <dt>Inventario</dt>
+              <dd>Planejado para proxima etapa</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="panel-block">
+          <h2>Loop de jogo</h2>
+          <ul>
+            <li>Mover o personagem pelo mapa.</li>
+            <li>Coletar reliquias em pontos marcados.</li>
+            <li>Consultar a melhor rota entre objetivos restantes.</li>
+            <li>Organizar o inventario por peso, valor ou raridade.</li>
+          </ul>
+        </section>
+
+        <section class="panel-block">
+          <h2>Atalhos planejados</h2>
+          <ul>
+            <li><strong>WASD / Setas:</strong> mover</li>
+            <li><strong>E:</strong> coletar item</li>
+            <li><strong>I:</strong> abrir inventario</li>
+            <li><strong>R:</strong> recalcular rota</li>
+            <li><strong>S:</strong> alterar criterio de ordenacao</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+
+    <script src="src/main.js"></script>
+  </body>
+</html>
