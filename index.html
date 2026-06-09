@@ -11,11 +11,11 @@
       <section class="play-area">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Projeto academico com algoritmos classicos</p>
+            <p class="eyebrow">Expedicao arqueologica</p>
             <h1>Rota das Reliquias</h1>
             <p class="subtitle">
-              Explore um mapa com terreno variavel, colete reliquias e use a rota
-              mais eficiente para voltar a base.
+              Atravesse trilhas, dunas e ruinas para recuperar reliquias e retornar
+              a base com seguranca.
             </p>
           </div>
           <div class="topbar-actions">
@@ -26,7 +26,7 @@
               Novo jogo
             </button>
             <button id="routeButton" class="primary-button" type="button">
-              Mostrar rota sugerida
+              Mostrar melhor rota
             </button>
           </div>
         </header>
@@ -40,98 +40,77 @@
       </section>
 
       <aside class="side-panel">
-        <section class="panel-block">
-          <h2>Status atual</h2>
-          <dl class="status-list">
-            <div>
-              <dt>Posicao</dt>
-              <dd id="playerPosition">144, 422</dd>
-            </div>
-            <div>
-              <dt>Movimento</dt>
-              <dd id="playerMovement">Parado</dd>
-            </div>
-            <div>
-              <dt>Pontos de coleta</dt>
-              <dd id="pickupSummary">5 a 8 ativos</dd>
-            </div>
-            <div>
-              <dt>Itens modelados</dt>
-              <dd id="itemSummary">5 a 8 itens / 0 coletados</dd>
-            </div>
-            <div>
-              <dt>Modo da rota</dt>
-              <dd id="routeMode">Rota oculta</dd>
-            </div>
-            <div>
-              <dt>Custo da rota</dt>
-              <dd id="routeDistance">Oculto</dd>
-            </div>
-            <div>
-              <dt>Passos restantes</dt>
+        <section id="expeditionPanel" class="panel-block panel-block-primary">
+          <p class="panel-kicker">Expedicao ativa</p>
+          <h2 id="expeditionStatus" class="mission-status">Em exploracao</h2>
+          <p id="interactionStatus" class="mission-copy">Aproxime-se de um ponto de coleta</p>
+        </section>
+
+        <section id="resourcesPanel" class="panel-block">
+          <p class="panel-kicker">Recursos</p>
+          <dl class="hud-grid">
+            <div id="stepsCard" class="hud-metric hud-metric-strong">
+              <dt>Passos</dt>
               <dd id="remainingSteps">0 passos</dd>
             </div>
-            <div>
-              <dt>Distancia percorrida</dt>
-              <dd id="traveledDistance">0 px</dd>
+            <div id="terrainCard" class="hud-metric">
+              <dt>Terreno</dt>
+              <dd id="playerTerrain">Aguardando mapa</dd>
             </div>
-            <div>
-              <dt>Expedicao</dt>
-              <dd id="expeditionStatus">Em exploracao</dd>
+            <div class="hud-metric">
+              <dt>Locais restantes</dt>
+              <dd id="pickupSummary">0 locais</dd>
             </div>
-            <div>
-              <dt>Inventario</dt>
-              <dd id="inventoryStatus">0 itens armazenados</dd>
+            <div class="hud-metric">
+              <dt>Reliquias</dt>
+              <dd id="itemSummary">0/0 coletadas</dd>
             </div>
-            <div>
-              <dt>Geracao</dt>
-              <dd id="generationStatus">Mapa inicial</dd>
-            </div>
-            <div>
-              <dt>Interacao</dt>
-              <dd id="interactionStatus">Aproxime-se de um ponto de coleta</dd>
-            </div>
-            <div>
-              <dt>Ultima coleta</dt>
-              <dd id="lastCollectedItem">Nenhuma coleta realizada</dd>
+            <div class="hud-metric">
+              <dt>Mochila</dt>
+              <dd id="inventoryStatus">0 itens</dd>
             </div>
           </dl>
         </section>
 
         <section class="panel-block">
-          <h2>Loop de jogo</h2>
-          <ul>
-            <li>Mover o personagem pelo mapa.</li>
-            <li>Coletar reliquias em pontos marcados.</li>
-            <li>Consultar a melhor rota entre objetivos restantes.</li>
-            <li>Lidar com obstaculos e terrenos que consomem mais passos.</li>
-            <li>Organizar o inventario por peso, valor ou raridade.</li>
-          </ul>
+          <p class="panel-kicker">Navegacao</p>
+          <dl class="hud-grid hud-grid-compact">
+            <div class="hud-metric">
+              <dt>Rota</dt>
+              <dd id="routeMode">Oculta</dd>
+            </div>
+            <div class="hud-metric">
+              <dt>Custo estimado</dt>
+              <dd id="routeDistance">Oculto</dd>
+            </div>
+          </dl>
         </section>
 
         <section class="panel-block">
-          <h2>Atalhos planejados</h2>
-          <ul>
-            <li><strong>WASD / Setas:</strong> mover</li>
-            <li><strong>E:</strong> coletar item</li>
-            <li><strong>I:</strong> abrir inventario</li>
-            <li><strong>R:</strong> mostrar ou recalcular rota</li>
-          </ul>
+          <p class="panel-kicker">Registro</p>
+          <p class="record-label">Ultima descoberta</p>
+          <p id="lastCollectedItem" class="record-value">Nenhuma reliquia coletada</p>
         </section>
 
-        <section class="panel-block">
-          <h2>Teste desta etapa</h2>
-          <ul>
-            <li>Use `WASD` ou as setas para mover o jogador.</li>
-            <li>O marcador verde deve contornar obstaculos e gastar mais passos em terreno dificil.</li>
-            <li>Confira se o mapa mistura trilha firme, areia comum, duna pesada e entulho de ruina.</li>
-            <li>O painel deve atualizar coordenadas e direcao.</li>
-            <li>Use `Novo jogo` para redistribuir base, itens e inicio com 5 a 8 pontos.</li>
-            <li>Fique perto de um ponto e pressione `E` para coletar.</li>
-            <li>Pressione `R` para mostrar a rota sugerida, recalcula-la e atualizar a ordem `P1...Pn`.</li>
-            <li>Administre os passos restantes e volte para a base depois de coletar tudo.</li>
-            <li>Pressione `I` para abrir e fechar o inventario.</li>
-            <li>Use `Ordenar por` no inventario para alternar o criterio de exibicao dos itens.</li>
+        <section class="panel-block panel-block-controls">
+          <p class="panel-kicker">Controles</p>
+          <ul class="control-list">
+            <li>
+              <strong>Mover</strong>
+              <span>WASD / Setas</span>
+            </li>
+            <li>
+              <strong>Coletar</strong>
+              <span>E</span>
+            </li>
+            <li>
+              <strong>Rota</strong>
+              <span>R</span>
+            </li>
+            <li>
+              <strong>Inventario</strong>
+              <span>I</span>
+            </li>
           </ul>
         </section>
       </aside>

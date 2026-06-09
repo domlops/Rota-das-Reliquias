@@ -3,17 +3,18 @@ const context = canvas.getContext("2d");
 const inventoryButton = document.getElementById("inventoryButton");
 const newGameButton = document.getElementById("newGameButton");
 const routeButton = document.getElementById("routeButton");
+const expeditionPanel = document.getElementById("expeditionPanel");
+const resourcesPanel = document.getElementById("resourcesPanel");
+const stepsCard = document.getElementById("stepsCard");
+const terrainCard = document.getElementById("terrainCard");
 const routeModeLabel = document.getElementById("routeMode");
 const routeDistanceLabel = document.getElementById("routeDistance");
 const remainingStepsLabel = document.getElementById("remainingSteps");
-const traveledDistanceLabel = document.getElementById("traveledDistance");
 const expeditionStatusLabel = document.getElementById("expeditionStatus");
-const playerPositionLabel = document.getElementById("playerPosition");
-const playerMovementLabel = document.getElementById("playerMovement");
+const playerTerrainLabel = document.getElementById("playerTerrain");
 const pickupSummaryLabel = document.getElementById("pickupSummary");
 const itemSummaryLabel = document.getElementById("itemSummary");
 const inventoryStatusLabel = document.getElementById("inventoryStatus");
-const generationStatusLabel = document.getElementById("generationStatus");
 const interactionStatusLabel = document.getElementById("interactionStatus");
 const lastCollectedItemLabel = document.getElementById("lastCollectedItem");
 const inventoryOverlay = document.getElementById("inventoryOverlay");
@@ -26,6 +27,7 @@ const inventoryEmptyState = document.getElementById("inventoryEmptyState");
 const inventoryList = document.getElementById("inventoryList");
 const inventoryListShell = document.querySelector(".inventory-list-shell");
 const tspSystem = window.tspSystem;
+const terrainCatalog = window.gameData.terrainCatalog;
 
 const colors = {
   grid: "rgba(31, 28, 24, 0.1)",
@@ -111,8 +113,8 @@ const state = {
   expeditionComplete: false,
   inventory: window.inventorySystem.createInventory(),
   nearbyPickupId: null,
-  interactionMessage: "Aproxime-se de um ponto de coleta",
-  lastCollectedItemName: "Nenhuma coleta realizada",
+  interactionMessage: "Siga em direcao a uma reliquia para iniciar a busca.",
+  lastCollectedItemName: "Nenhuma reliquia coletada",
   player: {
     x: 0,
     y: 0,
@@ -131,9 +133,41 @@ const worldBounds = {
 
 let lastFrameTime = performance.now();
 const inventorySortCriteria = window.inventorySortSystem.supportedCriteria;
+const expeditionPanelStateClasses = [
+  "panel-state-exploration",
+  "panel-state-return",
+  "panel-state-empty",
+  "panel-state-complete",
+];
+const resourcesPanelStateClasses = [
+  "resources-state-normal",
+  "resources-state-low",
+  "resources-state-empty",
+];
+const metricStateClasses = ["metric-state-normal", "metric-state-low", "metric-state-empty"];
+const terrainStateClasses = [
+  "terrain-state-trilha_firme",
+  "terrain-state-areia_comum",
+  "terrain-state-duna_pesada",
+  "terrain-state-entulho_ruina",
+];
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function setStateClass(element, availableClasses, activeClass) {
+  if (!element) {
+    return;
+  }
+
+  for (const className of availableClasses) {
+    element.classList.remove(className);
+  }
+
+  if (activeClass) {
+    element.classList.add(activeClass);
+  }
 }
 
 function isPickupCollected(pickupPoint) {
@@ -258,18 +292,18 @@ function refreshBestRoute() {
 
 function getRouteModeText() {
   if (!state.routePlan) {
-    return "Sem rota calculada";
+    return "Indisponivel";
   }
 
   if (state.routePlan.strategy === "exact") {
-    return "TSP exato";
+    return "Otimizada";
   }
 
   if (state.routePlan.strategy === "nearest_neighbor") {
-    return "TSP heuristico";
+    return "Estimada";
   }
 
-  return "Rota sugerida";
+  return "Sugerida";
 }
 
 function getExpeditionStatusText() {
@@ -344,6 +378,32 @@ function getTerrainCostAtPosition(position) {
   }
 
   return state.terrainMap.costs[cell.row][cell.col] ?? 1;
+}
+
+function getCurrentTerrainInfo() {
+  const terrainCell = getTerrainCell(state.player);
+
+  if (!terrainCell) {
+    return {
+      id: null,
+      nome: "Fora do mapa",
+      cost: null,
+    };
+  }
+
+  const terrainTypeId = getTerrainTypeAtCell(terrainCell.col, terrainCell.row);
+  const terrainData = terrainCatalog?.[terrainTypeId];
+
+  return {
+    id: terrainTypeId,
+    nome: terrainData?.nome ?? "Terreno desconhecido",
+    cost: terrainData?.cost ?? getTerrainCostAtPosition(state.player),
+  };
+}
+
+function getCurrentTerrainLabelText() {
+  const terrainInfo = getCurrentTerrainInfo();
+  return terrainInfo.nome;
 }
 
 function isBlockedTerrainCell(col, row) {
@@ -733,21 +793,21 @@ function render() {
 
 function updateRouteLabels() {
   if (!state.showRoute) {
-    routeModeLabel.textContent = "Rota oculta";
+    routeModeLabel.textContent = "Oculta";
     routeDistanceLabel.textContent = "Oculto";
-    routeButton.textContent = "Mostrar rota sugerida";
+    routeButton.textContent = "Mostrar melhor rota";
     return;
   }
 
   if (state.expeditionComplete) {
-    routeModeLabel.textContent = "Expedicao concluida";
+    routeModeLabel.textContent = "Encerrada";
     routeDistanceLabel.textContent = "0 passos";
     routeButton.textContent = "Atualizar rota";
     return;
   }
 
   if (needsReturnToBase()) {
-    routeModeLabel.textContent = "Retorno final";
+    routeModeLabel.textContent = "Retorno";
     routeDistanceLabel.textContent = `${Math.round(getReturnDistanceToBase())} passos`;
     routeButton.textContent = "Atualizar retorno";
     return;
@@ -759,28 +819,59 @@ function updateRouteLabels() {
 }
 
 function updatePlayerLabels() {
-  playerPositionLabel.textContent = `${Math.round(state.player.x)}, ${Math.round(state.player.y)}`;
-  playerMovementLabel.textContent = state.player.directionLabel;
+  playerTerrainLabel.textContent = getCurrentTerrainLabelText();
+}
+
+function updateHudStateStyles() {
+  const terrainInfo = getCurrentTerrainInfo();
+  let expeditionStateClass = "panel-state-exploration";
+
+  if (state.expeditionComplete) {
+    expeditionStateClass = "panel-state-complete";
+  } else if (state.stepsRemaining <= 0) {
+    expeditionStateClass = "panel-state-empty";
+  } else if (needsReturnToBase()) {
+    expeditionStateClass = "panel-state-return";
+  }
+
+  setStateClass(expeditionPanel, expeditionPanelStateClasses, expeditionStateClass);
+
+  let resourcesStateClass = "resources-state-normal";
+  let stepsStateClass = "metric-state-normal";
+
+  if (state.stepsRemaining <= 0) {
+    resourcesStateClass = "resources-state-empty";
+    stepsStateClass = "metric-state-empty";
+  } else if (state.stepsRemaining <= 180) {
+    resourcesStateClass = "resources-state-low";
+    stepsStateClass = "metric-state-low";
+  }
+
+  setStateClass(resourcesPanel, resourcesPanelStateClasses, resourcesStateClass);
+  setStateClass(stepsCard, metricStateClasses, stepsStateClass);
+  setStateClass(
+    terrainCard,
+    terrainStateClasses,
+    terrainInfo.id ? `terrain-state-${terrainInfo.id}` : null,
+  );
 }
 
 function updatePickupLabels() {
   const availablePickupPoints = getAvailablePickupPoints().length;
-  const totalPickupPoints = state.pickupPoints.length;
   const totalItems = getTotalItemCount();
   const collectedItems = getCollectedItemCount();
 
-  pickupSummaryLabel.textContent = `${availablePickupPoints} ativos / ${totalPickupPoints} totais`;
-  itemSummaryLabel.textContent = `${totalItems} itens / ${collectedItems} coletados`;
+  pickupSummaryLabel.textContent = `${availablePickupPoints} locais`;
+  itemSummaryLabel.textContent = `${collectedItems}/${totalItems} coletadas`;
 }
 
 function updateInventoryLabel() {
   const itemCount = getStoredInventoryCount();
-  inventoryStatusLabel.textContent = `${itemCount} item(ns) armazenado(s)`;
+  inventoryStatusLabel.textContent = `${itemCount} item(ns)`;
 }
 
 function updateExpeditionLabels() {
   remainingStepsLabel.textContent = `${Math.max(0, Math.round(state.stepsRemaining))} passos`;
-  traveledDistanceLabel.textContent = `${Math.round(state.distanceTraveled)} px`;
   expeditionStatusLabel.textContent = getExpeditionStatusText();
 }
 
@@ -913,11 +1004,7 @@ function completeExpedition() {
   state.expeditionComplete = true;
   state.nearbyPickupId = null;
   state.player.directionLabel = "Expedicao concluida";
-  state.interactionMessage = `Expedicao concluida com ${Math.round(state.distanceTraveled)} px percorridos.`;
-}
-
-function updateGenerationLabel() {
-  generationStatusLabel.textContent = `Jogo ${state.generationCount}`;
+  state.interactionMessage = "Expedicao concluida. A base recebeu todas as reliquias.";
 }
 
 function updateInteractionLabels() {
@@ -928,7 +1015,7 @@ function updateInteractionLabels() {
 function updateInteractionState() {
   if (state.expeditionComplete) {
     state.nearbyPickupId = null;
-    state.interactionMessage = `Expedicao concluida com ${Math.round(state.distanceTraveled)} px percorridos.`;
+    state.interactionMessage = "Expedicao concluida. A base recebeu todas as reliquias.";
     return;
   }
 
@@ -955,11 +1042,11 @@ function updateInteractionState() {
   }
 
   if (state.stepsRemaining <= 0) {
-    state.interactionMessage = "Sem passos restantes. Use Novo jogo para tentar outra rota.";
+    state.interactionMessage = "Sem passos restantes. Inicie uma nova expedicao para tentar novamente.";
     return;
   }
 
-  state.interactionMessage = "Nenhum ponto de coleta ao alcance";
+  state.interactionMessage = "Continue explorando para localizar a proxima reliquia.";
 }
 
 function updateStatusPanel() {
@@ -970,7 +1057,7 @@ function updateStatusPanel() {
   updatePickupLabels();
   updateExpeditionLabels();
   updateInventoryLabel();
-  updateGenerationLabel();
+  updateHudStateStyles();
   updateInteractionLabels();
 }
 
@@ -1189,8 +1276,8 @@ function startNewGame() {
   state.distanceTraveled = 0;
   state.expeditionComplete = false;
   state.nearbyPickupId = null;
-  state.interactionMessage = "Aproxime-se de um ponto de coleta";
-  state.lastCollectedItemName = "Nenhuma coleta realizada";
+  state.interactionMessage = "Siga em direcao a uma reliquia para iniciar a busca.";
+  state.lastCollectedItemName = "Nenhuma reliquia coletada";
   state.player.x = session.playerStart.x;
   state.player.y = session.playerStart.y;
   state.player.directionLabel = "Parado";
