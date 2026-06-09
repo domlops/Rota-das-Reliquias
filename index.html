@@ -18,9 +18,14 @@
               eficiente para voltar a base.
             </p>
           </div>
-          <button id="routeButton" class="primary-button" type="button">
-            Mostrar rota sugerida
-          </button>
+          <div class="topbar-actions">
+            <button id="newGameButton" class="secondary-button" type="button">
+              Novo jogo
+            </button>
+            <button id="routeButton" class="primary-button" type="button">
+              Mostrar rota sugerida
+            </button>
+          </div>
         </header>
 
         <canvas
@@ -44,6 +49,14 @@
               <dd id="playerMovement">Parado</dd>
             </div>
             <div>
+              <dt>Pontos de coleta</dt>
+              <dd id="pickupSummary">5 ativos</dd>
+            </div>
+            <div>
+              <dt>Itens modelados</dt>
+              <dd id="itemSummary">6 itens / 0 coletados</dd>
+            </div>
+            <div>
               <dt>Modo da rota</dt>
               <dd id="routeMode">Preview academico</dd>
             </div>
@@ -54,6 +67,10 @@
             <div>
               <dt>Inventario</dt>
               <dd>Planejado para proxima etapa</dd>
+            </div>
+            <div>
+              <dt>Geracao</dt>
+              <dd id="generationStatus">Mapa inicial</dd>
             </div>
           </dl>
         </section>
@@ -85,11 +102,13 @@
             <li>Use `WASD` ou as setas para mover o jogador.</li>
             <li>O marcador verde deve permanecer dentro do mapa.</li>
             <li>O painel deve atualizar coordenadas e direcao.</li>
+            <li>Use `Novo jogo` para redistribuir base, itens e inicio.</li>
           </ul>
         </section>
       </aside>
     </main>
 
+    <script src="src/data/game-data.js"></script>
     <script src="src/main.js"></script>
   </body>
 </html>

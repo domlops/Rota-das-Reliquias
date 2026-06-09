@@ -1,32 +1,27 @@
 const canvas = document.getElementById("gameCanvas");
 const context = canvas.getContext("2d");
+const newGameButton = document.getElementById("newGameButton");
 const routeButton = document.getElementById("routeButton");
 const routeModeLabel = document.getElementById("routeMode");
 const routeDistanceLabel = document.getElementById("routeDistance");
 const playerPositionLabel = document.getElementById("playerPosition");
 const playerMovementLabel = document.getElementById("playerMovement");
+const pickupSummaryLabel = document.getElementById("pickupSummary");
+const itemSummaryLabel = document.getElementById("itemSummary");
+const generationStatusLabel = document.getElementById("generationStatus");
 
 const colors = {
   grid: "rgba(31, 28, 24, 0.12)",
   text: "#1f1c18",
   base: "#144552",
   collectible: "#d08c30",
+  collected: "#8f8a7d",
   route: "#a63d40",
   player: "#206a5d",
   playerCore: "#f6f0e4",
   shadow: "rgba(31, 28, 24, 0.18)",
 };
 
-const base = { id: "Base", x: 120, y: 430, kind: "base" };
-const relicNodes = [
-  { id: "R1", x: 220, y: 180, label: "Anfora", rarity: "comum" },
-  { id: "R2", x: 410, y: 120, label: "Moeda", rarity: "incomum" },
-  { id: "R3", x: 610, y: 220, label: "Mascara", rarity: "rara" },
-  { id: "R4", x: 760, y: 360, label: "Tablete", rarity: "comum" },
-  { id: "R5", x: 470, y: 390, label: "Escaravelho", rarity: "epica" },
-];
-
-const demoRoute = [base, relicNodes[0], relicNodes[1], relicNodes[2], relicNodes[4], relicNodes[3], base];
 const keyState = {
   ArrowUp: false,
   ArrowDown: false,
@@ -40,9 +35,12 @@ const keyState = {
 
 const state = {
   showRoute: false,
+  generationCount: 0,
+  base: null,
+  pickupPoints: [],
   player: {
-    x: base.x + 24,
-    y: base.y - 8,
+    x: 0,
+    y: 0,
     radius: 10,
     speed: 220,
     directionLabel: "Parado",
@@ -60,6 +58,47 @@ let lastFrameTime = performance.now();
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function isPickupCollected(pickupPoint) {
+  return pickupPoint.items.every((item) => item.coletado);
+}
+
+function syncPickupStates() {
+  for (const pickupPoint of state.pickupPoints) {
+    pickupPoint.collected = isPickupCollected(pickupPoint);
+  }
+}
+
+function getAvailablePickupPoints() {
+  return state.pickupPoints.filter((pickupPoint) => !pickupPoint.collected);
+}
+
+function getTotalItemCount() {
+  return state.pickupPoints.reduce((total, pickupPoint) => total + pickupPoint.items.length, 0);
+}
+
+function getCollectedItemCount() {
+  return state.pickupPoints.reduce(
+    (total, pickupPoint) => total + pickupPoint.items.filter((item) => item.coletado).length,
+    0,
+  );
+}
+
+function getRoutePreview() {
+  if (!state.base) {
+    return [];
+  }
+
+  return [state.base, ...getAvailablePickupPoints(), state.base];
+}
+
+function getPickupDisplayLabel(pickupPoint) {
+  if (pickupPoint.items.length === 1) {
+    return pickupPoint.items[0].nome;
+  }
+
+  return `${pickupPoint.label} (${pickupPoint.items.length} itens)`;
 }
 
 function drawBackground() {
@@ -94,15 +133,21 @@ function drawRoute() {
     return;
   }
 
+  const routePreview = getRoutePreview();
+
+  if (routePreview.length < 2) {
+    return;
+  }
+
   context.save();
   context.beginPath();
   context.setLineDash([10, 8]);
   context.lineWidth = 4;
   context.strokeStyle = colors.route;
-  context.moveTo(demoRoute[0].x, demoRoute[0].y);
+  context.moveTo(routePreview[0].x, routePreview[0].y);
 
-  for (let index = 1; index < demoRoute.length; index += 1) {
-    context.lineTo(demoRoute[index].x, demoRoute[index].y);
+  for (let index = 1; index < routePreview.length; index += 1) {
+    context.lineTo(routePreview[index].x, routePreview[index].y);
   }
 
   context.stroke();
@@ -124,14 +169,34 @@ function drawNode(node, radius, fill) {
   context.fillText(node.id, node.x - 10, node.y - 18);
 }
 
-function drawNodes() {
-  drawNode(base, 18, colors.base);
+function drawPickupItemCount(pickupPoint) {
+  if (pickupPoint.items.length <= 1) {
+    return;
+  }
 
-  for (const node of relicNodes) {
-    drawNode(node, 14, colors.collectible);
+  context.save();
+  context.beginPath();
+  context.arc(pickupPoint.x + 12, pickupPoint.y - 12, 10, 0, Math.PI * 2);
+  context.fillStyle = "#f6f0e4";
+  context.fill();
+  context.restore();
+
+  context.fillStyle = colors.text;
+  context.font = "bold 11px Trebuchet MS";
+  context.fillText(String(pickupPoint.items.length), pickupPoint.x + 8, pickupPoint.y - 8);
+}
+
+function drawNodes() {
+  drawNode(state.base, 18, colors.base);
+
+  for (const pickupPoint of state.pickupPoints) {
+    const fillColor = pickupPoint.collected ? colors.collected : colors.collectible;
+
+    drawNode(pickupPoint, 14, fillColor);
+    drawPickupItemCount(pickupPoint);
     context.fillStyle = colors.text;
     context.font = "13px Trebuchet MS";
-    context.fillText(node.label, node.x - 22, node.y + 30);
+    context.fillText(getPickupDisplayLabel(pickupPoint), pickupPoint.x - 42, pickupPoint.y + 30);
   }
 }
 
@@ -161,13 +226,14 @@ function drawPlayer() {
 
 function drawLegend() {
   context.fillStyle = "rgba(248, 242, 231, 0.92)";
-  context.fillRect(32, 460, 260, 54);
+  context.fillRect(32, 452, 330, 64);
   context.strokeStyle = "rgba(31, 28, 24, 0.12)";
-  context.strokeRect(32, 460, 260, 54);
+  context.strokeRect(32, 452, 330, 64);
 
   context.fillStyle = colors.text;
   context.font = "12px Trebuchet MS";
-  context.fillText("Base: retorno seguro | Pontos dourados: itens coletaveis", 48, 492);
+  context.fillText("Base: retorno seguro | Pontos dourados: coleta disponivel", 48, 482);
+  context.fillText("Circulo claro com numero: mais de um item no mesmo ponto", 48, 502);
 }
 
 function render() {
@@ -203,8 +269,10 @@ function updateRouteLabels() {
     return;
   }
 
+  const routePreview = getRoutePreview();
+
   routeModeLabel.textContent = "Rota TSP de demonstracao";
-  routeDistanceLabel.textContent = `${Math.round(measureRoute(demoRoute))} px`;
+  routeDistanceLabel.textContent = `${Math.round(measureRoute(routePreview))} px`;
   routeButton.textContent = "Ocultar rota sugerida";
 }
 
@@ -213,9 +281,26 @@ function updatePlayerLabels() {
   playerMovementLabel.textContent = state.player.directionLabel;
 }
 
+function updatePickupLabels() {
+  const availablePickupPoints = getAvailablePickupPoints().length;
+  const totalPickupPoints = state.pickupPoints.length;
+  const totalItems = getTotalItemCount();
+  const collectedItems = getCollectedItemCount();
+
+  pickupSummaryLabel.textContent = `${availablePickupPoints} ativos / ${totalPickupPoints} totais`;
+  itemSummaryLabel.textContent = `${totalItems} itens / ${collectedItems} coletados`;
+}
+
+function updateGenerationLabel() {
+  generationStatusLabel.textContent = `Jogo ${state.generationCount}`;
+}
+
 function updateStatusPanel() {
+  syncPickupStates();
   updateRouteLabels();
   updatePlayerLabels();
+  updatePickupLabels();
+  updateGenerationLabel();
 }
 
 function isMovingUp() {
@@ -318,6 +403,21 @@ function resetInputState() {
   }
 }
 
+function startNewGame() {
+  const session = window.gameData.createNewGame();
+
+  resetInputState();
+  state.showRoute = false;
+  state.generationCount += 1;
+  state.base = session.baseNode;
+  state.pickupPoints = session.pickupPoints;
+  state.player.x = session.playerStart.x;
+  state.player.y = session.playerStart.y;
+  state.player.directionLabel = "Parado";
+  updateStatusPanel();
+  render();
+}
+
 function frame(currentTime) {
   const deltaTime = Math.min((currentTime - lastFrameTime) / 1000, 0.05);
   lastFrameTime = currentTime;
@@ -348,6 +448,9 @@ routeButton.addEventListener("click", () => {
   updateStatusPanel();
 });
 
-updateStatusPanel();
-render();
+newGameButton.addEventListener("click", () => {
+  startNewGame();
+});
+
+startNewGame();
 window.requestAnimationFrame(frame);
