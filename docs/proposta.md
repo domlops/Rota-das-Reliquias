@@ -117,18 +117,13 @@ Essa stack reduz atrito, deixa o jogo facil de abrir, facilita a explicacao do c
 
 ```text
 /
-|-- assets/
 |-- docs/
 |   |-- algoritmos.md
 |   |-- issues.md
 |   |-- proposta.md
-|   `-- roteiro-implementacao.md
 |-- src/
-|   |-- algorithms/
 |   |-- data/
-|   |-- entities/
 |   |-- systems/
-|   |-- ui/
 |   `-- main.js
 |-- styles/
 |   `-- main.css

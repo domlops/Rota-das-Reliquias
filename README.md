@@ -123,6 +123,7 @@ Mais detalhes tecnicos estao em [docs/algoritmos.md](docs/algoritmos.md).
 |   |-- algoritmos.md
 |   |-- issues.md
 |   |-- proposta.md
+|   |-- roteiro-apresentacao.md
 |   |-- testes-manuais.md
 |   `-- roteiro-implementacao.md
 |-- src/
@@ -155,10 +156,12 @@ Mais detalhes tecnicos estao em [docs/algoritmos.md](docs/algoritmos.md).
 - [docs/issues.md](docs/issues.md): backlog em formato de issues
 - [docs/roteiro-implementacao.md](docs/roteiro-implementacao.md): roteiro de implementacao do MVP
 - [docs/algoritmos.md](docs/algoritmos.md): justificativa tecnica dos algoritmos
+- [docs/roteiro-apresentacao.md](docs/roteiro-apresentacao.md): roteiro curto para demonstracao do projeto
 - [docs/testes-manuais.md](docs/testes-manuais.md): roteiro curto de validacao do fluxo principal
 
 ## Observacoes finais
 
 - O projeto prioriza clareza academica e demonstracao jogavel.
 - O foco do MVP e mostrar algoritmo aplicado a uma decisao visivel para o jogador.
-- As proximas etapas naturais sao testes manuais finais, ajustes de balanceamento e revisao para apresentacao.
+- A documentacao principal, o roteiro de testes e o roteiro de apresentacao ja acompanham o repositorio.
+- O estado atual do projeto e adequado para demonstracao e entrega academica.
