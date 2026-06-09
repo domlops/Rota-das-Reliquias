@@ -22,6 +22,7 @@ const inventorySortSelect = document.getElementById("inventorySortSelect");
 const inventoryEmptyState = document.getElementById("inventoryEmptyState");
 const inventoryList = document.getElementById("inventoryList");
 const inventoryListShell = document.querySelector(".inventory-list-shell");
+const tspSystem = window.tspSystem;
 
 const colors = {
   grid: "rgba(31, 28, 24, 0.12)",
@@ -54,6 +55,7 @@ const state = {
   generationCount: 0,
   base: null,
   pickupPoints: [],
+  routePlan: null,
   scenery: null,
   inventory: window.inventorySystem.createInventory(),
   nearbyPickupId: null,
@@ -128,11 +130,33 @@ function getSortedInventoryItems() {
 }
 
 function getRoutePreview() {
+  return state.routePlan?.route ?? (state.base ? [state.base] : []);
+}
+
+function refreshBestRoute() {
   if (!state.base) {
-    return [];
+    state.routePlan = null;
+    return null;
   }
 
-  return [state.base, ...getAvailablePickupPoints(), state.base];
+  state.routePlan = tspSystem.calculateBestRoute(state.base, getAvailablePickupPoints());
+  return state.routePlan;
+}
+
+function getRouteModeText() {
+  if (!state.routePlan) {
+    return "Sem rota calculada";
+  }
+
+  if (state.routePlan.strategy === "exact") {
+    return "TSP exato";
+  }
+
+  if (state.routePlan.strategy === "nearest_neighbor") {
+    return "TSP heuristico";
+  }
+
+  return "Rota sugerida";
 }
 
 function getPickupDisplayLabel(pickupPoint) {
@@ -371,42 +395,11 @@ function drawPlayer() {
   context.fillText("Jogador", x - 24, y - 18);
 }
 
-function drawLegend() {
-  context.fillStyle = "rgba(248, 242, 231, 0.92)";
-  context.fillRect(32, 446, 340, 72);
-  context.strokeStyle = "rgba(31, 28, 24, 0.12)";
-  context.strokeRect(32, 446, 340, 72);
-
-  context.fillStyle = colors.text;
-  context.font = "12px Trebuchet MS";
-  context.fillText("Quadrado verde: jogador | Circulos dourados: coleta disponivel", 48, 476);
-  context.fillText("Base azul: retorno seguro | Circulo claro: varios itens no ponto", 48, 496);
-  context.fillText("Ruinas e dunas agora variam a cada novo jogo", 48, 514);
-}
-
 function render() {
   drawBackground();
   drawRoute();
   drawNodes();
   drawPlayer();
-  drawLegend();
-}
-
-function distanceBetween(pointA, pointB) {
-  const dx = pointA.x - pointB.x;
-  const dy = pointA.y - pointB.y;
-
-  return Math.hypot(dx, dy);
-}
-
-function measureRoute(route) {
-  let total = 0;
-
-  for (let index = 0; index < route.length - 1; index += 1) {
-    total += distanceBetween(route[index], route[index + 1]);
-  }
-
-  return total;
 }
 
 function updateRouteLabels() {
@@ -417,11 +410,9 @@ function updateRouteLabels() {
     return;
   }
 
-  const routePreview = getRoutePreview();
-
-  routeModeLabel.textContent = "Rota TSP de demonstracao";
-  routeDistanceLabel.textContent = `${Math.round(measureRoute(routePreview))} px`;
-  routeButton.textContent = "Ocultar rota sugerida";
+  routeModeLabel.textContent = getRouteModeText();
+  routeDistanceLabel.textContent = `${Math.round(state.routePlan?.totalDistance ?? 0)} px`;
+  routeButton.textContent = "Recalcular rota sugerida";
 }
 
 function updatePlayerLabels() {
@@ -545,6 +536,13 @@ function setInventorySortCriterion(criterion) {
   }
 
   renderInventory();
+}
+
+function showAndRefreshRoute() {
+  refreshBestRoute();
+  state.showRoute = true;
+  updateStatusPanel();
+  render();
 }
 
 function updateGenerationLabel() {
@@ -678,7 +676,7 @@ function getNearbyPickupPoint() {
   const interactionDistance = 36;
 
   for (const pickupPoint of getAvailablePickupPoints()) {
-    const distance = distanceBetween(state.player, pickupPoint);
+    const distance = tspSystem.distanceBetween(state.player, pickupPoint);
 
     if (distance <= interactionDistance) {
       return pickupPoint;
@@ -709,6 +707,7 @@ function collectNearbyItem() {
   });
   item.coletado = true;
   syncPickupStates();
+  refreshBestRoute();
   state.lastCollectedItemName = `${item.nome} coletado em ${pickupPoint.id}`;
   syncInventoryOverlay();
   return true;
@@ -740,6 +739,7 @@ function startNewGame() {
   state.generationCount += 1;
   state.base = session.baseNode;
   state.pickupPoints = session.pickupPoints;
+  state.routePlan = null;
   state.scenery = session.scenery;
   state.inventory = window.inventorySystem.createInventory();
   state.nearbyPickupId = null;
@@ -748,6 +748,7 @@ function startNewGame() {
   state.player.x = session.playerStart.x;
   state.player.y = session.playerStart.y;
   state.player.directionLabel = "Parado";
+  refreshBestRoute();
   updateStatusPanel();
   syncInventoryOverlay();
   render();
@@ -776,6 +777,12 @@ window.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape" && state.inventoryOpen) {
     setInventoryOpen(false);
+    event.preventDefault();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "r") {
+    showAndRefreshRoute();
     event.preventDefault();
     return;
   }
@@ -814,8 +821,7 @@ inventoryOverlay.addEventListener("click", (event) => {
 });
 
 routeButton.addEventListener("click", () => {
-  state.showRoute = !state.showRoute;
-  updateStatusPanel();
+  showAndRefreshRoute();
 });
 
 inventoryButton.addEventListener("click", () => {

@@ -102,7 +102,7 @@
             <li><strong>WASD / Setas:</strong> mover</li>
             <li><strong>E:</strong> coletar item</li>
             <li><strong>I:</strong> abrir inventario</li>
-            <li><strong>R:</strong> recalcular rota</li>
+            <li><strong>R:</strong> mostrar ou recalcular rota</li>
           </ul>
         </section>
 
@@ -114,6 +114,7 @@
             <li>O painel deve atualizar coordenadas e direcao.</li>
             <li>Use `Novo jogo` para redistribuir base, itens e inicio.</li>
             <li>Fique perto de um ponto e pressione `E` para coletar.</li>
+            <li>Pressione `R` para mostrar a rota sugerida e recalcula-la quando necessario.</li>
             <li>Pressione `I` para abrir e fechar o inventario.</li>
             <li>Use `Ordenar por` no inventario para alternar o criterio de exibicao dos itens.</li>
           </ul>
@@ -153,8 +154,10 @@
             <span>Ordenar por</span>
             <select id="inventorySortSelect" class="inventory-sort-select">
               <option value="raridade">Raridade (mais rara primeiro)</option>
-              <option value="peso">Peso (maior primeiro)</option>
-              <option value="valor">Valor (maior primeiro)</option>
+              <option value="peso_crescente">Peso (menor primeiro)</option>
+              <option value="peso_decrescente">Peso (maior primeiro)</option>
+              <option value="valor_crescente">Valor (menor primeiro)</option>
+              <option value="valor_decrescente">Valor (maior primeiro)</option>
             </select>
           </label>
         </section>
@@ -171,6 +174,7 @@
     <script src="src/data/game-data.js"></script>
     <script src="src/systems/inventory.js"></script>
     <script src="src/systems/inventory-sort.js"></script>
+    <script src="src/systems/tsp.js"></script>
     <script src="src/main.js"></script>
   </body>
 </html>

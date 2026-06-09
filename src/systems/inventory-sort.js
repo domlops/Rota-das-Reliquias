@@ -1,5 +1,11 @@
 (function () {
-  const supportedCriteria = ["raridade", "peso", "valor"];
+  const supportedCriteria = [
+    "raridade",
+    "peso_crescente",
+    "peso_decrescente",
+    "valor_crescente",
+    "valor_decrescente",
+  ];
 
   const rarityWeights = {
     comum: 0,
@@ -20,23 +26,41 @@
     return Number(rightValue) - Number(leftValue);
   }
 
+  function compareNumbersAscending(leftValue, rightValue) {
+    return Number(leftValue) - Number(rightValue);
+  }
+
   function getRarityWeight(item) {
     return rarityWeights[normalizeText(item?.raridade)] ?? -1;
   }
 
   function compareItems(leftItem, rightItem, criterion = "raridade") {
     switch (criterion) {
-      case "peso":
+      case "peso_crescente":
+        return (
+          compareNumbersAscending(leftItem.peso, rightItem.peso) ||
+          compareNumbersDescending(leftItem.valor, rightItem.valor) ||
+          compareText(leftItem.nome, rightItem.nome)
+        );
+
+      case "peso_decrescente":
         return (
           compareNumbersDescending(leftItem.peso, rightItem.peso) ||
           compareNumbersDescending(leftItem.valor, rightItem.valor) ||
           compareText(leftItem.nome, rightItem.nome)
         );
 
-      case "valor":
+      case "valor_crescente":
+        return (
+          compareNumbersAscending(leftItem.valor, rightItem.valor) ||
+          compareNumbersAscending(leftItem.peso, rightItem.peso) ||
+          compareText(leftItem.nome, rightItem.nome)
+        );
+
+      case "valor_decrescente":
         return (
           compareNumbersDescending(leftItem.valor, rightItem.valor) ||
-          compareNumbersDescending(leftItem.peso, rightItem.peso) ||
+          compareNumbersAscending(leftItem.peso, rightItem.peso) ||
           compareText(leftItem.nome, rightItem.nome)
         );
 
