@@ -14,8 +14,8 @@
             <p class="eyebrow">Projeto academico com algoritmos classicos</p>
             <h1>Rota das Reliquias</h1>
             <p class="subtitle">
-              Explore um mapa compacto, colete reliquias e use a rota mais
-              eficiente para voltar a base.
+              Explore um mapa com terreno variavel, colete reliquias e use a rota
+              mais eficiente para voltar a base.
             </p>
           </div>
           <div class="topbar-actions">
@@ -35,7 +35,7 @@
           id="gameCanvas"
           width="960"
           height="540"
-          aria-label="Mapa inicial do jogo"
+          aria-label="Mapa do jogo com terreno e obstaculos"
         ></canvas>
       </section>
 
@@ -53,19 +53,31 @@
             </div>
             <div>
               <dt>Pontos de coleta</dt>
-              <dd id="pickupSummary">5 ativos</dd>
+              <dd id="pickupSummary">5 a 8 ativos</dd>
             </div>
             <div>
               <dt>Itens modelados</dt>
-              <dd id="itemSummary">6 itens / 0 coletados</dd>
+              <dd id="itemSummary">5 a 8 itens / 0 coletados</dd>
             </div>
             <div>
               <dt>Modo da rota</dt>
-              <dd id="routeMode">Preview academico</dd>
+              <dd id="routeMode">Rota oculta</dd>
             </div>
             <div>
-              <dt>Distancia demo</dt>
-              <dd id="routeDistance">Oculta</dd>
+              <dt>Custo da rota</dt>
+              <dd id="routeDistance">Oculto</dd>
+            </div>
+            <div>
+              <dt>Passos restantes</dt>
+              <dd id="remainingSteps">0 passos</dd>
+            </div>
+            <div>
+              <dt>Distancia percorrida</dt>
+              <dd id="traveledDistance">0 px</dd>
+            </div>
+            <div>
+              <dt>Expedicao</dt>
+              <dd id="expeditionStatus">Em exploracao</dd>
             </div>
             <div>
               <dt>Inventario</dt>
@@ -92,6 +104,7 @@
             <li>Mover o personagem pelo mapa.</li>
             <li>Coletar reliquias em pontos marcados.</li>
             <li>Consultar a melhor rota entre objetivos restantes.</li>
+            <li>Lidar com obstaculos e terrenos que consomem mais passos.</li>
             <li>Organizar o inventario por peso, valor ou raridade.</li>
           </ul>
         </section>
@@ -110,11 +123,13 @@
           <h2>Teste desta etapa</h2>
           <ul>
             <li>Use `WASD` ou as setas para mover o jogador.</li>
-            <li>O marcador verde deve permanecer dentro do mapa.</li>
+            <li>O marcador verde deve contornar obstaculos e gastar mais passos em terreno dificil.</li>
+            <li>Confira se o mapa mistura trilha firme, areia comum, duna pesada e entulho de ruina.</li>
             <li>O painel deve atualizar coordenadas e direcao.</li>
-            <li>Use `Novo jogo` para redistribuir base, itens e inicio.</li>
+            <li>Use `Novo jogo` para redistribuir base, itens e inicio com 5 a 8 pontos.</li>
             <li>Fique perto de um ponto e pressione `E` para coletar.</li>
-            <li>Pressione `R` para mostrar a rota sugerida e recalcula-la quando necessario.</li>
+            <li>Pressione `R` para mostrar a rota sugerida, recalcula-la e atualizar a ordem `P1...Pn`.</li>
+            <li>Administre os passos restantes e volte para a base depois de coletar tudo.</li>
             <li>Pressione `I` para abrir e fechar o inventario.</li>
             <li>Use `Ordenar por` no inventario para alternar o criterio de exibicao dos itens.</li>
           </ul>

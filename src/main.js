@@ -5,6 +5,9 @@ const newGameButton = document.getElementById("newGameButton");
 const routeButton = document.getElementById("routeButton");
 const routeModeLabel = document.getElementById("routeMode");
 const routeDistanceLabel = document.getElementById("routeDistance");
+const remainingStepsLabel = document.getElementById("remainingSteps");
+const traveledDistanceLabel = document.getElementById("traveledDistance");
+const expeditionStatusLabel = document.getElementById("expeditionStatus");
 const playerPositionLabel = document.getElementById("playerPosition");
 const playerMovementLabel = document.getElementById("playerMovement");
 const pickupSummaryLabel = document.getElementById("pickupSummary");
@@ -25,8 +28,9 @@ const inventoryListShell = document.querySelector(".inventory-list-shell");
 const tspSystem = window.tspSystem;
 
 const colors = {
-  grid: "rgba(31, 28, 24, 0.12)",
+  grid: "rgba(31, 28, 24, 0.1)",
   text: "#1f1c18",
+  textMuted: "rgba(31, 28, 24, 0.72)",
   base: "#144552",
   collectible: "#d08c30",
   collected: "#8f8a7d",
@@ -35,6 +39,40 @@ const colors = {
   player: "#206a5d",
   playerCore: "#f6f0e4",
   shadow: "rgba(31, 28, 24, 0.18)",
+  badgeFill: "rgba(248, 242, 231, 0.92)",
+  badgeBorder: "rgba(31, 28, 24, 0.12)",
+  obstacleFill: "#8f765e",
+  obstacleShade: "#75604c",
+  obstacleHighlight: "#b89d81",
+  roughFill: "rgba(197, 149, 72, 0.35)",
+  roughAccent: "rgba(153, 108, 41, 0.35)",
+};
+
+const terrainStyles = {
+  trilha_firme: {
+    fill: "#c8a16c",
+    edge: "rgba(122, 82, 39, 0.18)",
+    detail: "rgba(245, 229, 201, 0.38)",
+    mark: "rgba(133, 94, 49, 0.26)",
+  },
+  areia_comum: {
+    fill: "#e2c78f",
+    edge: "rgba(163, 127, 73, 0.12)",
+    detail: "rgba(252, 243, 223, 0.3)",
+    mark: "rgba(176, 142, 88, 0.12)",
+  },
+  duna_pesada: {
+    fill: "#d2ab69",
+    edge: "rgba(150, 101, 38, 0.16)",
+    detail: "rgba(247, 225, 179, 0.28)",
+    mark: "rgba(148, 100, 41, 0.34)",
+  },
+  entulho_ruina: {
+    fill: "#b79a78",
+    edge: "rgba(101, 78, 56, 0.24)",
+    detail: "rgba(231, 219, 201, 0.22)",
+    mark: "rgba(111, 82, 50, 0.26)",
+  },
 };
 
 const keyState = {
@@ -48,6 +86,17 @@ const keyState = {
   d: false,
 };
 
+const gameplayConfig = {
+  initialSteps: 820,
+  baseReturnDistance: 40,
+  stepRewardsByRarity: {
+    comum: 110,
+    incomum: 150,
+    rara: 220,
+    epica: 320,
+  },
+};
+
 const state = {
   showRoute: false,
   inventoryOpen: false,
@@ -56,7 +105,10 @@ const state = {
   base: null,
   pickupPoints: [],
   routePlan: null,
-  scenery: null,
+  terrainMap: null,
+  stepsRemaining: gameplayConfig.initialSteps,
+  distanceTraveled: 0,
+  expeditionComplete: false,
   inventory: window.inventorySystem.createInventory(),
   nearbyPickupId: null,
   interactionMessage: "Aproxime-se de um ponto de coleta",
@@ -129,17 +181,78 @@ function getSortedInventoryItems() {
   return window.inventorySortSystem.mergeSort(getInventoryItems(), state.inventorySortCriterion);
 }
 
-function getRoutePreview() {
-  return state.routePlan?.route ?? (state.base ? [state.base] : []);
+function normalizeRarityKey(rarity) {
+  return String(rarity ?? "").trim().toLowerCase();
+}
+
+function getItemStepReward(item) {
+  return gameplayConfig.stepRewardsByRarity[normalizeRarityKey(item?.raridade)] ?? 120;
+}
+
+function hasCollectedAllItems() {
+  const totalItems = getTotalItemCount();
+  return totalItems > 0 && getCollectedItemCount() === totalItems;
+}
+
+function getRouteStartPoint() {
+  return {
+    x: state.player.x,
+    y: state.player.y,
+  };
+}
+
+function isPlayerNearBase() {
+  return Boolean(state.base) && tspSystem.distanceBetween(state.player, state.base) <= gameplayConfig.baseReturnDistance;
+}
+
+function needsReturnToBase() {
+  return hasCollectedAllItems() && !state.expeditionComplete;
+}
+
+function getReturnRoutePlan() {
+  if (!state.base || !state.terrainMap) {
+    return null;
+  }
+
+  return tspSystem.calculatePath(getRouteStartPoint(), state.base, state.terrainMap);
+}
+
+function getReturnDistanceToBase() {
+  return getReturnRoutePlan()?.totalCost ?? 0;
+}
+
+function getRoutePreviewPath() {
+  if (state.expeditionComplete) {
+    return [];
+  }
+
+  if (needsReturnToBase()) {
+    return getReturnRoutePlan()?.pathPoints ?? [];
+  }
+
+  return state.routePlan?.pathPoints ?? [];
 }
 
 function refreshBestRoute() {
-  if (!state.base) {
+  if (!state.base || !state.terrainMap) {
     state.routePlan = null;
     return null;
   }
 
-  state.routePlan = tspSystem.calculateBestRoute(state.base, getAvailablePickupPoints());
+  const availablePickupPoints = getAvailablePickupPoints();
+
+  if (availablePickupPoints.length === 0) {
+    state.routePlan = null;
+    return null;
+  }
+
+  state.routePlan = tspSystem.calculateBestRoute(
+    getRouteStartPoint(),
+    availablePickupPoints,
+    state.terrainMap,
+    state.base,
+  );
+
   return state.routePlan;
 }
 
@@ -159,6 +272,22 @@ function getRouteModeText() {
   return "Rota sugerida";
 }
 
+function getExpeditionStatusText() {
+  if (state.expeditionComplete) {
+    return "Concluida";
+  }
+
+  if (needsReturnToBase()) {
+    return "Voltar para a base";
+  }
+
+  if (state.stepsRemaining <= 0 && !getNearbyPickupPoint()) {
+    return "Sem passos";
+  }
+
+  return "Em exploracao";
+}
+
 function getPickupDisplayLabel(pickupPoint) {
   const remainingItems = getRemainingItems(pickupPoint);
 
@@ -166,130 +295,293 @@ function getPickupDisplayLabel(pickupPoint) {
     return `${pickupPoint.label} (coletado)`;
   }
 
-  if (remainingItems.length === 1) {
-    return remainingItems[0].nome;
+  return remainingItems[0].nome;
+}
+
+function getTerrainCell(position) {
+  if (!state.terrainMap) {
+    return null;
   }
 
-  return `${pickupPoint.label} (${remainingItems.length} itens)`;
+  const { originX, originY, cellSize, cols, rows } = state.terrainMap;
+  const col = Math.floor((position.x - originX) / cellSize);
+  const row = Math.floor((position.y - originY) / cellSize);
+
+  if (col < 0 || col >= cols || row < 0 || row >= rows) {
+    return null;
+  }
+
+  return { col, row };
+}
+
+function getTerrainCellRect(col, row) {
+  if (!state.terrainMap) {
+    return null;
+  }
+
+  const { originX, originY, cellSize } = state.terrainMap;
+
+  return {
+    x: originX + col * cellSize,
+    y: originY + row * cellSize,
+    size: cellSize,
+  };
+}
+
+function getTerrainTypeAtCell(col, row) {
+  if (!state.terrainMap) {
+    return "areia_comum";
+  }
+
+  return state.terrainMap.terrainTypes?.[row]?.[col] ?? "areia_comum";
+}
+
+function getTerrainCostAtPosition(position) {
+  const cell = getTerrainCell(position);
+
+  if (!cell || !state.terrainMap) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return state.terrainMap.costs[cell.row][cell.col] ?? 1;
+}
+
+function isBlockedTerrainCell(col, row) {
+  if (!state.terrainMap) {
+    return false;
+  }
+
+  if (col < 0 || col >= state.terrainMap.cols || row < 0 || row >= state.terrainMap.rows) {
+    return true;
+  }
+
+  return Boolean(state.terrainMap.blocked[row][col]);
+}
+
+function isWalkablePlayerPosition(x, y) {
+  if (!state.terrainMap) {
+    return true;
+  }
+
+  const sampleDistance = state.player.radius - 1;
+  const sampleOffsets = [
+    { x: 0, y: 0 },
+    { x: sampleDistance, y: 0 },
+    { x: -sampleDistance, y: 0 },
+    { x: 0, y: sampleDistance },
+    { x: 0, y: -sampleDistance },
+    { x: sampleDistance * 0.7, y: sampleDistance * 0.7 },
+    { x: -sampleDistance * 0.7, y: sampleDistance * 0.7 },
+    { x: sampleDistance * 0.7, y: -sampleDistance * 0.7 },
+    { x: -sampleDistance * 0.7, y: -sampleDistance * 0.7 },
+  ];
+
+  for (const offset of sampleOffsets) {
+    const cell = getTerrainCell({
+      x: x + offset.x,
+      y: y + offset.y,
+    });
+
+    if (!cell || isBlockedTerrainCell(cell.col, cell.row)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getMovementCostBetweenPositions(startPosition, endPosition) {
+  const midpoint = {
+    x: (startPosition.x + endPosition.x) / 2,
+    y: (startPosition.y + endPosition.y) / 2,
+  };
+
+  return Math.max(
+    getTerrainCostAtPosition(startPosition),
+    getTerrainCostAtPosition(midpoint),
+    getTerrainCostAtPosition(endPosition),
+  );
+}
+
+function drawRoundedRect(x, y, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+  context.closePath();
+}
+
+function drawGroundTiles() {
+  if (!state.terrainMap) {
+    return;
+  }
+
+  for (let row = 0; row < state.terrainMap.rows; row += 1) {
+    for (let col = 0; col < state.terrainMap.cols; col += 1) {
+      const cellRect = getTerrainCellRect(col, row);
+      const terrainType = getTerrainTypeAtCell(col, row);
+      const terrainStyle = terrainStyles[terrainType] ?? terrainStyles.areia_comum;
+
+      context.fillStyle = terrainStyle.fill;
+      context.fillRect(cellRect.x, cellRect.y, cellRect.size, cellRect.size);
+
+      context.fillStyle = terrainStyle.detail;
+      context.fillRect(cellRect.x + 2, cellRect.y + 2, cellRect.size - 4, 6);
+
+      context.strokeStyle = terrainStyle.edge;
+      context.lineWidth = 1;
+      context.strokeRect(cellRect.x + 0.5, cellRect.y + 0.5, cellRect.size - 1, cellRect.size - 1);
+
+      if (terrainType === "trilha_firme") {
+        context.fillStyle = terrainStyle.mark;
+        context.fillRect(cellRect.x + 7, cellRect.y + cellRect.size / 2 - 4, cellRect.size - 14, 8);
+        context.fillStyle = terrainStyle.detail;
+        context.fillRect(cellRect.x + 10, cellRect.y + cellRect.size / 2 - 1, cellRect.size - 20, 2);
+        continue;
+      }
+
+      if (terrainType === "duna_pesada") {
+        context.save();
+        context.strokeStyle = terrainStyle.mark;
+        context.lineWidth = 2;
+
+        for (let index = 0; index < 3; index += 1) {
+          const offsetY = 11 + index * 10 + ((col + row + index) % 2);
+
+          context.beginPath();
+          context.moveTo(cellRect.x + 5, cellRect.y + offsetY);
+          context.quadraticCurveTo(
+            cellRect.x + cellRect.size / 2,
+            cellRect.y + offsetY - 3,
+            cellRect.x + cellRect.size - 5,
+            cellRect.y + offsetY,
+          );
+          context.stroke();
+        }
+
+        context.restore();
+        continue;
+      }
+
+      if (terrainType === "entulho_ruina") {
+        context.fillStyle = terrainStyle.mark;
+        context.fillRect(cellRect.x + 8, cellRect.y + 10, 6, 6);
+        context.fillRect(cellRect.x + 18, cellRect.y + 24, 7, 5);
+        context.fillRect(cellRect.x + 31, cellRect.y + 15, 5, 5);
+        context.beginPath();
+        context.moveTo(cellRect.x + 10, cellRect.y + 34);
+        context.lineTo(cellRect.x + 18, cellRect.y + 28);
+        context.lineTo(cellRect.x + 24, cellRect.y + 34);
+        context.lineWidth = 2;
+        context.strokeStyle = terrainStyle.mark;
+        context.stroke();
+        continue;
+      }
+
+      if ((row + col) % 2 === 0) {
+        context.fillStyle = terrainStyle.mark;
+        context.fillRect(cellRect.x + 8, cellRect.y + 10, 5, 5);
+        context.fillRect(cellRect.x + 31, cellRect.y + 28, 4, 4);
+      }
+    }
+  }
+}
+
+function drawObstacleTerrain() {
+  if (!state.terrainMap) {
+    return;
+  }
+
+  for (let row = 0; row < state.terrainMap.rows; row += 1) {
+    for (let col = 0; col < state.terrainMap.cols; col += 1) {
+      if (!isBlockedTerrainCell(col, row)) {
+        continue;
+      }
+
+      const cellRect = getTerrainCellRect(col, row);
+      const inset = 4;
+
+      context.fillStyle = colors.obstacleShade;
+      context.fillRect(
+        cellRect.x + inset + 2,
+        cellRect.y + inset + 4,
+        cellRect.size - inset * 2,
+        cellRect.size - inset * 2,
+      );
+
+      context.fillStyle = colors.obstacleFill;
+      context.fillRect(
+        cellRect.x + inset,
+        cellRect.y + inset,
+        cellRect.size - inset * 2,
+        cellRect.size - inset * 2,
+      );
+
+      context.fillStyle = colors.obstacleHighlight;
+      context.fillRect(cellRect.x + inset, cellRect.y + inset, cellRect.size - inset * 2, 8);
+
+      context.strokeStyle = "rgba(56, 42, 32, 0.45)";
+      context.lineWidth = 2;
+      context.beginPath();
+      context.moveTo(cellRect.x + 12, cellRect.y + 15);
+      context.lineTo(cellRect.x + 22, cellRect.y + 25);
+      context.lineTo(cellRect.x + 18, cellRect.y + 35);
+      context.moveTo(cellRect.x + 30, cellRect.y + 18);
+      context.lineTo(cellRect.x + 36, cellRect.y + 28);
+      context.stroke();
+    }
+  }
+}
+
+function drawTerrainGrid() {
+  if (!state.terrainMap) {
+    return;
+  }
+
+  context.save();
+  context.strokeStyle = colors.grid;
+  context.lineWidth = 1;
+
+  for (let col = 0; col <= state.terrainMap.cols; col += 1) {
+    const x = state.terrainMap.originX + col * state.terrainMap.cellSize;
+    context.beginPath();
+    context.moveTo(x, state.terrainMap.originY);
+    context.lineTo(x, state.terrainMap.originY + state.terrainMap.rows * state.terrainMap.cellSize);
+    context.stroke();
+  }
+
+  for (let row = 0; row <= state.terrainMap.rows; row += 1) {
+    const y = state.terrainMap.originY + row * state.terrainMap.cellSize;
+    context.beginPath();
+    context.moveTo(state.terrainMap.originX, y);
+    context.lineTo(state.terrainMap.originX + state.terrainMap.cols * state.terrainMap.cellSize, y);
+    context.stroke();
+  }
+
+  context.restore();
 }
 
 function drawBackground() {
   context.clearRect(0, 0, canvas.width, canvas.height);
 
   const skyGradient = context.createLinearGradient(0, 0, 0, canvas.height);
-  skyGradient.addColorStop(0, "#e7d1ab");
-  skyGradient.addColorStop(1, "#d0af77");
+  skyGradient.addColorStop(0, "#ecd8b3");
+  skyGradient.addColorStop(0.55, "#d9bb86");
+  skyGradient.addColorStop(1, "#caa16b");
   context.fillStyle = skyGradient;
   context.fillRect(0, 0, canvas.width, canvas.height);
 
-  drawDuneBands();
-  drawRuinSites();
-  drawRockClusters();
-
-  for (let x = 0; x <= canvas.width; x += 48) {
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, canvas.height);
-    context.strokeStyle = colors.grid;
-    context.lineWidth = 1;
-    context.stroke();
-  }
-
-  for (let y = 0; y <= canvas.height; y += 48) {
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(canvas.width, y);
-    context.strokeStyle = colors.grid;
-    context.lineWidth = 1;
-    context.stroke();
-  }
-}
-
-function drawDuneBands() {
-  if (!state.scenery) {
-    return;
-  }
-
-  for (const band of state.scenery.duneBands) {
-    context.save();
-    context.beginPath();
-    context.moveTo(0, band.y);
-
-    for (let x = 0; x <= canvas.width; x += 24) {
-      const waveY = band.y + Math.sin(x / band.wavelength + band.phase) * band.amplitude;
-      context.lineTo(x, waveY);
-    }
-
-    for (let x = canvas.width; x >= 0; x -= 24) {
-      const waveY =
-        band.y +
-        band.thickness +
-        Math.sin(x / (band.wavelength * 0.9) + band.phase + 0.7) * (band.amplitude * 0.45);
-      context.lineTo(x, waveY);
-    }
-
-    context.closePath();
-    context.fillStyle = `rgba(245, 233, 204, ${band.alpha})`;
-    context.fill();
-    context.restore();
-  }
-}
-
-function drawRuinSites() {
-  if (!state.scenery) {
-    return;
-  }
-
-  for (const ruin of state.scenery.ruinSites) {
-    const halfWidth = ruin.width / 2;
-    const halfHeight = ruin.height / 2;
-    const notch = 12;
-
-    context.save();
-    context.translate(ruin.x + halfWidth, ruin.y + halfHeight);
-    context.rotate(ruin.rotation);
-    context.beginPath();
-    context.moveTo(-halfWidth + notch, -halfHeight);
-    context.lineTo(halfWidth - notch, -halfHeight);
-    context.lineTo(halfWidth, -halfHeight + notch);
-    context.lineTo(halfWidth, halfHeight - notch);
-    context.lineTo(halfWidth - notch, halfHeight);
-    context.lineTo(-halfWidth + notch, halfHeight);
-    context.lineTo(-halfWidth, halfHeight - notch);
-    context.lineTo(-halfWidth, -halfHeight + notch);
-    context.closePath();
-    context.fillStyle = "rgba(242, 227, 198, 0.34)";
-    context.strokeStyle = "rgba(120, 95, 61, 0.18)";
-    context.lineWidth = 2;
-    context.fill();
-    context.stroke();
-    context.beginPath();
-    context.moveTo(-halfWidth / 2, -halfHeight + 8);
-    context.lineTo(-halfWidth / 2, halfHeight - 8);
-    context.moveTo(halfWidth / 5, -halfHeight + 8);
-    context.lineTo(halfWidth / 5, halfHeight - 8);
-    context.moveTo(-halfWidth + 8, 0);
-    context.lineTo(halfWidth - 8, 0);
-    context.stroke();
-    context.restore();
-  }
-}
-
-function drawRockClusters() {
-  if (!state.scenery) {
-    return;
-  }
-
-  for (const cluster of state.scenery.rockClusters) {
-    context.save();
-    context.fillStyle = "rgba(126, 94, 58, 0.22)";
-    context.beginPath();
-    context.arc(cluster.x, cluster.y, cluster.radius, 0, Math.PI * 2);
-    context.arc(cluster.x + cluster.offsetX, cluster.y + cluster.offsetY, cluster.radius - 1, 0, Math.PI * 2);
-    context.arc(cluster.x - cluster.offsetY * 0.4, cluster.y + cluster.offsetX * 0.3, cluster.radius - 2, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
-  }
+  drawGroundTiles();
+  drawObstacleTerrain();
+  drawTerrainGrid();
 }
 
 function drawRoute() {
@@ -297,7 +589,7 @@ function drawRoute() {
     return;
   }
 
-  const routePreview = getRoutePreview();
+  const routePreview = getRoutePreviewPath();
 
   if (routePreview.length < 2) {
     return;
@@ -318,7 +610,54 @@ function drawRoute() {
   context.restore();
 }
 
-function drawNode(node, radius, fill) {
+function getPickupOrderMap() {
+  const routeOrderMap = new Map();
+
+  if (!state.routePlan) {
+    return routeOrderMap;
+  }
+
+  state.routePlan.orderedPoints.forEach((pickupPoint, index) => {
+    routeOrderMap.set(pickupPoint.id, `P${index + 1}`);
+  });
+
+  return routeOrderMap;
+}
+
+function drawMarkerBadge(x, y, text, isCollected = false) {
+  context.save();
+  context.font = "bold 12px Trebuchet MS";
+
+  const badgeWidth = context.measureText(text).width + 16;
+  const badgeHeight = 22;
+  const badgeX = x - badgeWidth / 2;
+  const badgeY = y;
+
+  drawRoundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 11);
+  context.fillStyle = isCollected ? "rgba(239, 233, 224, 0.92)" : colors.badgeFill;
+  context.strokeStyle = colors.badgeBorder;
+  context.lineWidth = 1;
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = colors.text;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, x, badgeY + badgeHeight / 2 + 0.5);
+  context.restore();
+}
+
+function drawPickupLabel(x, y, text) {
+  context.save();
+  context.font = "13px Trebuchet MS";
+  context.textAlign = "center";
+  context.textBaseline = "top";
+  context.fillStyle = colors.textMuted;
+  context.fillText(text, x, y);
+  context.restore();
+}
+
+function drawNode(node, radius, fill, markerText) {
   context.save();
   context.beginPath();
   context.arc(node.x, node.y, radius, 0, Math.PI * 2);
@@ -328,32 +667,27 @@ function drawNode(node, radius, fill) {
   context.fill();
   context.restore();
 
-  context.fillStyle = colors.text;
-  context.font = "bold 14px Trebuchet MS";
-  context.fillText(node.id, node.x - 10, node.y - 18);
-}
-
-function drawPickupItemCount(pickupPoint) {
-  const remainingItems = getRemainingItems(pickupPoint);
-
-  if (remainingItems.length <= 1) {
-    return;
-  }
-
-  context.save();
-  context.beginPath();
-  context.arc(pickupPoint.x + 12, pickupPoint.y - 12, 10, 0, Math.PI * 2);
-  context.fillStyle = "#f6f0e4";
-  context.fill();
-  context.restore();
-
-  context.fillStyle = colors.text;
-  context.font = "bold 11px Trebuchet MS";
-  context.fillText(String(remainingItems.length), pickupPoint.x + 8, pickupPoint.y - 8);
+  drawMarkerBadge(node.x, node.y - radius - 28, markerText, markerText === "OK");
 }
 
 function drawNodes() {
-  drawNode(state.base, 18, colors.base);
+  if (!state.base) {
+    return;
+  }
+
+  const routeOrderMap = getPickupOrderMap();
+
+  if (needsReturnToBase()) {
+    context.save();
+    context.beginPath();
+    context.arc(state.base.x, state.base.y, 28, 0, Math.PI * 2);
+    context.strokeStyle = colors.route;
+    context.lineWidth = 3;
+    context.stroke();
+    context.restore();
+  }
+
+  drawNode(state.base, 18, colors.base, "Base");
 
   for (const pickupPoint of state.pickupPoints) {
     let fillColor = colors.collectible;
@@ -364,13 +698,10 @@ function drawNodes() {
       fillColor = colors.nearby;
     }
 
-    drawNode(pickupPoint, 14, fillColor);
-    if (!pickupPoint.collected) {
-      drawPickupItemCount(pickupPoint);
-    }
-    context.fillStyle = colors.text;
-    context.font = "13px Trebuchet MS";
-    context.fillText(getPickupDisplayLabel(pickupPoint), pickupPoint.x - 42, pickupPoint.y + 30);
+    const markerText = pickupPoint.collected ? "OK" : routeOrderMap.get(pickupPoint.id) ?? "P?";
+
+    drawNode(pickupPoint, 14, fillColor, markerText);
+    drawPickupLabel(pickupPoint.x, pickupPoint.y + 24, getPickupDisplayLabel(pickupPoint));
   }
 }
 
@@ -390,9 +721,7 @@ function drawPlayer() {
   context.fillRect(x - 3, y - 3, 6, 6);
   context.restore();
 
-  context.fillStyle = colors.text;
-  context.font = "bold 13px Trebuchet MS";
-  context.fillText("Jogador", x - 24, y - 18);
+  drawMarkerBadge(x, y - radius - 28, "Jogador");
 }
 
 function render() {
@@ -404,14 +733,28 @@ function render() {
 
 function updateRouteLabels() {
   if (!state.showRoute) {
-    routeModeLabel.textContent = "Preview academico";
-    routeDistanceLabel.textContent = "Oculta";
+    routeModeLabel.textContent = "Rota oculta";
+    routeDistanceLabel.textContent = "Oculto";
     routeButton.textContent = "Mostrar rota sugerida";
     return;
   }
 
+  if (state.expeditionComplete) {
+    routeModeLabel.textContent = "Expedicao concluida";
+    routeDistanceLabel.textContent = "0 passos";
+    routeButton.textContent = "Atualizar rota";
+    return;
+  }
+
+  if (needsReturnToBase()) {
+    routeModeLabel.textContent = "Retorno final";
+    routeDistanceLabel.textContent = `${Math.round(getReturnDistanceToBase())} passos`;
+    routeButton.textContent = "Atualizar retorno";
+    return;
+  }
+
   routeModeLabel.textContent = getRouteModeText();
-  routeDistanceLabel.textContent = `${Math.round(state.routePlan?.totalDistance ?? 0)} px`;
+  routeDistanceLabel.textContent = `${Math.round(state.routePlan?.totalDistance ?? 0)} passos`;
   routeButton.textContent = "Recalcular rota sugerida";
 }
 
@@ -433,6 +776,12 @@ function updatePickupLabels() {
 function updateInventoryLabel() {
   const itemCount = getStoredInventoryCount();
   inventoryStatusLabel.textContent = `${itemCount} item(ns) armazenado(s)`;
+}
+
+function updateExpeditionLabels() {
+  remainingStepsLabel.textContent = `${Math.max(0, Math.round(state.stepsRemaining))} passos`;
+  traveledDistanceLabel.textContent = `${Math.round(state.distanceTraveled)} px`;
+  expeditionStatusLabel.textContent = getExpeditionStatusText();
 }
 
 function formatWeight(weight) {
@@ -545,6 +894,28 @@ function showAndRefreshRoute() {
   render();
 }
 
+function toggleRouteVisibility() {
+  if (state.showRoute) {
+    state.showRoute = false;
+    updateStatusPanel();
+    render();
+    return;
+  }
+
+  showAndRefreshRoute();
+}
+
+function completeExpedition() {
+  if (state.expeditionComplete) {
+    return;
+  }
+
+  state.expeditionComplete = true;
+  state.nearbyPickupId = null;
+  state.player.directionLabel = "Expedicao concluida";
+  state.interactionMessage = `Expedicao concluida com ${Math.round(state.distanceTraveled)} px percorridos.`;
+}
+
 function updateGenerationLabel() {
   generationStatusLabel.textContent = `Jogo ${state.generationCount}`;
 }
@@ -555,23 +926,40 @@ function updateInteractionLabels() {
 }
 
 function updateInteractionState() {
-  const nearbyPickupPoint = getNearbyPickupPoint();
+  if (state.expeditionComplete) {
+    state.nearbyPickupId = null;
+    state.interactionMessage = `Expedicao concluida com ${Math.round(state.distanceTraveled)} px percorridos.`;
+    return;
+  }
 
+  if (needsReturnToBase() && isPlayerNearBase()) {
+    completeExpedition();
+    return;
+  }
+
+  const nearbyPickupPoint = getNearbyPickupPoint();
   state.nearbyPickupId = nearbyPickupPoint?.id ?? null;
 
-  if (!nearbyPickupPoint) {
-    state.interactionMessage = "Nenhum ponto de coleta ao alcance";
+  if (needsReturnToBase()) {
+    state.interactionMessage = `Todos os itens coletados. Volte para a base (${Math.round(getReturnDistanceToBase())} passos estimados).`;
     return;
   }
 
-  const remainingItems = getRemainingItems(nearbyPickupPoint);
+  if (nearbyPickupPoint) {
+    const item = getNextCollectibleItem(nearbyPickupPoint);
 
-  if (remainingItems.length === 1) {
-    state.interactionMessage = `Pressione E para coletar ${remainingItems[0].nome}`;
+    if (item) {
+      state.interactionMessage = `Pressione E para coletar ${item.nome} em ${nearbyPickupPoint.label}.`;
+      return;
+    }
+  }
+
+  if (state.stepsRemaining <= 0) {
+    state.interactionMessage = "Sem passos restantes. Use Novo jogo para tentar outra rota.";
     return;
   }
 
-  state.interactionMessage = `Pressione E para coletar itens em ${nearbyPickupPoint.id}`;
+  state.interactionMessage = "Nenhum ponto de coleta ao alcance";
 }
 
 function updateStatusPanel() {
@@ -580,6 +968,7 @@ function updateStatusPanel() {
   updateRouteLabels();
   updatePlayerLabels();
   updatePickupLabels();
+  updateExpeditionLabels();
   updateInventoryLabel();
   updateGenerationLabel();
   updateInteractionLabels();
@@ -648,7 +1037,7 @@ function getMovementVector() {
 }
 
 function updatePlayerPosition(deltaTime) {
-  if (state.inventoryOpen) {
+  if (state.inventoryOpen || state.expeditionComplete) {
     return;
   }
 
@@ -661,15 +1050,62 @@ function updatePlayerPosition(deltaTime) {
     return;
   }
 
-  const nextX = player.x + movement.x * player.speed * deltaTime;
-  const nextY = player.y + movement.y * player.speed * deltaTime;
+  if (state.stepsRemaining <= 0) {
+    player.directionLabel = "Sem passos";
+    return;
+  }
+
+  const intendedDeltaX = movement.x * player.speed * deltaTime;
+  const intendedDeltaY = movement.y * player.speed * deltaTime;
+  const intendedDistance = Math.hypot(intendedDeltaX, intendedDeltaY);
+  const estimatedTarget = {
+    x: player.x + intendedDeltaX,
+    y: player.y + intendedDeltaY,
+  };
+  const estimatedCostMultiplier = Math.max(
+    1,
+    getMovementCostBetweenPositions(player, estimatedTarget),
+  );
+  const allowedDistance = Math.min(intendedDistance, state.stepsRemaining / estimatedCostMultiplier);
+  const movementScale = intendedDistance === 0 ? 0 : allowedDistance / intendedDistance;
+  const deltaX = intendedDeltaX * movementScale;
+  const deltaY = intendedDeltaY * movementScale;
   const minX = worldBounds.minX + player.radius;
   const minY = worldBounds.minY + player.radius;
   const maxX = worldBounds.maxX - player.radius;
   const maxY = worldBounds.maxY - player.radius;
+  const previousPosition = {
+    x: player.x,
+    y: player.y,
+  };
 
-  player.x = clamp(nextX, minX, maxX);
-  player.y = clamp(nextY, minY, maxY);
+  const candidateX = clamp(player.x + deltaX, minX, maxX);
+
+  if (isWalkablePlayerPosition(candidateX, player.y)) {
+    player.x = candidateX;
+  }
+
+  const candidateY = clamp(player.y + deltaY, minY, maxY);
+
+  if (isWalkablePlayerPosition(player.x, candidateY)) {
+    player.y = candidateY;
+  }
+
+  const movedDistance = Math.hypot(player.x - previousPosition.x, player.y - previousPosition.y);
+
+  if (movedDistance <= 0) {
+    player.directionLabel = "Bloqueado";
+    return;
+  }
+
+  const movementCost = movedDistance * getMovementCostBetweenPositions(previousPosition, player);
+
+  state.distanceTraveled += movedDistance;
+  state.stepsRemaining = Math.max(0, state.stepsRemaining - movementCost);
+
+  if (state.stepsRemaining <= 0) {
+    player.directionLabel = "Sem passos";
+  }
 }
 
 function getNearbyPickupPoint() {
@@ -687,6 +1123,10 @@ function getNearbyPickupPoint() {
 }
 
 function collectNearbyItem() {
+  if (state.expeditionComplete) {
+    return false;
+  }
+
   const pickupPoint = getNearbyPickupPoint();
 
   if (!pickupPoint) {
@@ -699,16 +1139,19 @@ function collectNearbyItem() {
     return false;
   }
 
+  const stepReward = getItemStepReward(item);
+
   state.inventory.addItem({
     ...item,
     coletado: true,
-    coletadoEm: pickupPoint.id,
+    coletadoEm: pickupPoint.label,
     geracao: state.generationCount,
   });
   item.coletado = true;
+  state.stepsRemaining += stepReward;
   syncPickupStates();
   refreshBestRoute();
-  state.lastCollectedItemName = `${item.nome} coletado em ${pickupPoint.id}`;
+  state.lastCollectedItemName = `${item.nome} coletado em ${pickupPoint.label} (+${stepReward} passos)`;
   syncInventoryOverlay();
   return true;
 }
@@ -740,8 +1183,11 @@ function startNewGame() {
   state.base = session.baseNode;
   state.pickupPoints = session.pickupPoints;
   state.routePlan = null;
-  state.scenery = session.scenery;
+  state.terrainMap = session.terrainMap;
   state.inventory = window.inventorySystem.createInventory();
+  state.stepsRemaining = gameplayConfig.initialSteps;
+  state.distanceTraveled = 0;
+  state.expeditionComplete = false;
   state.nearbyPickupId = null;
   state.interactionMessage = "Aproxime-se de um ponto de coleta";
   state.lastCollectedItemName = "Nenhuma coleta realizada";
@@ -782,7 +1228,7 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (event.key.toLowerCase() === "r") {
-    showAndRefreshRoute();
+    toggleRouteVisibility();
     event.preventDefault();
     return;
   }

@@ -2,23 +2,43 @@
   const mapConfig = {
     canvasWidth: 960,
     canvasHeight: 540,
+    cellSize: 48,
+    gridCols: 20,
+    gridRows: 11,
+    gridOffsetX: 0,
+    gridOffsetY: 6,
     playerRadius: 10,
-    candidatePositions: [
-      { x: 150, y: 120 },
-      { x: 300, y: 120 },
-      { x: 450, y: 120 },
-      { x: 620, y: 130 },
-      { x: 780, y: 140 },
-      { x: 180, y: 220 },
-      { x: 360, y: 220 },
-      { x: 560, y: 230 },
-      { x: 760, y: 250 },
-      { x: 240, y: 330 },
-      { x: 430, y: 340 },
-      { x: 620, y: 360 },
-      { x: 800, y: 360 },
-      { x: 360, y: 430 },
-      { x: 560, y: 430 },
+    pickupCountRange: {
+      min: 5,
+      max: 8,
+    },
+    candidateCells: [
+      { col: 2, row: 1 },
+      { col: 4, row: 1 },
+      { col: 7, row: 1 },
+      { col: 10, row: 1 },
+      { col: 13, row: 1 },
+      { col: 16, row: 1 },
+      { col: 2, row: 3 },
+      { col: 5, row: 3 },
+      { col: 8, row: 3 },
+      { col: 11, row: 3 },
+      { col: 14, row: 3 },
+      { col: 17, row: 3 },
+      { col: 3, row: 5 },
+      { col: 6, row: 5 },
+      { col: 10, row: 5 },
+      { col: 14, row: 5 },
+      { col: 17, row: 5 },
+      { col: 2, row: 8 },
+      { col: 5, row: 8 },
+      { col: 8, row: 8 },
+      { col: 11, row: 8 },
+      { col: 14, row: 8 },
+      { col: 17, row: 8 },
+      { col: 4, row: 9 },
+      { col: 9, row: 9 },
+      { col: 15, row: 9 },
     ],
     playerSpawnOffsets: [
       { x: 34, y: -14 },
@@ -79,14 +99,93 @@
       tipo: "documento",
       descricao: "Trecho de mapa que sugere novas ligacoes entre ruinas.",
     },
+    bracelete_lapidado: {
+      nome: "Bracelete Lapidado",
+      peso: 0.9,
+      raridade: "rara",
+      valor: 240,
+      tipo: "joia",
+      descricao: "Bracelete entalhado com pedras foscas de origem desconhecida.",
+    },
+    astrolabio_de_bronze: {
+      nome: "Astrolabio de Bronze",
+      peso: 1.8,
+      raridade: "epica",
+      valor: 380,
+      tipo: "instrumento",
+      descricao: "Instrumento antigo que sugere conhecimento astronomico avancado.",
+    },
   };
 
-  const pickupTemplates = [
-    { id: "P1", label: "Ruina Norte", itemKeys: ["anfora_cerimonial"] },
-    { id: "P2", label: "Mercado Antigo", itemKeys: ["moeda_do_mercador"] },
-    { id: "P3", label: "Sala Ritual", itemKeys: ["mascara_ritual"] },
-    { id: "P4", label: "Arquivo Leste", itemKeys: ["tablete_de_argila"] },
-    { id: "P5", label: "Santuario Central", itemKeys: ["escaravelho_dourado", "pergaminho_de_mapa"] },
+  const siteLabels = [
+    "Ruina Norte",
+    "Mercado Soterrado",
+    "Sala Ritual",
+    "Arquivo Leste",
+    "Santuario Central",
+    "Patio dos Mercadores",
+    "Observatorio de Areia",
+    "Galeria Quebrada",
+    "Cripta Clara",
+    "Deposito de Basalto",
+  ];
+
+  const terrainCatalog = {
+    trilha_firme: {
+      id: "trilha_firme",
+      nome: "Trilha firme",
+      cost: 0.9,
+    },
+    areia_comum: {
+      id: "areia_comum",
+      nome: "Areia comum",
+      cost: 1.0,
+    },
+    duna_pesada: {
+      id: "duna_pesada",
+      nome: "Duna pesada",
+      cost: 1.4,
+    },
+    entulho_ruina: {
+      id: "entulho_ruina",
+      nome: "Entulho/Ruina",
+      cost: 1.8,
+    },
+  };
+
+  const obstacleTemplates = [
+    { id: "R1", col: 5, row: 1, width: 2, height: 2 },
+    { id: "R2", col: 9, row: 1, width: 3, height: 2 },
+    { id: "R3", col: 14, row: 2, width: 2, height: 2 },
+    { id: "R4", col: 3, row: 6, width: 2, height: 2 },
+    { id: "R5", col: 8, row: 6, width: 2, height: 2 },
+    { id: "R6", col: 13, row: 7, width: 3, height: 2 },
+  ];
+
+  const duneZoneTemplates = [
+    { id: "D1", col: 0, row: 0, width: 4, height: 2 },
+    { id: "D2", col: 6, row: 0, width: 5, height: 2 },
+    { id: "D3", col: 12, row: 3, width: 6, height: 2 },
+    { id: "D4", col: 1, row: 4, width: 4, height: 2 },
+    { id: "D5", col: 7, row: 8, width: 4, height: 2 },
+    { id: "D6", col: 15, row: 8, width: 4, height: 2 },
+    { id: "D7", col: 0, row: 8, width: 3, height: 2 },
+    { id: "D8", col: 12, row: 8, width: 3, height: 2 },
+  ];
+
+  const orthogonalDirections = [
+    { col: 1, row: 0 },
+    { col: -1, row: 0 },
+    { col: 0, row: 1 },
+    { col: 0, row: -1 },
+  ];
+
+  const surroundingDirections = [
+    ...orthogonalDirections,
+    { col: 1, row: 1 },
+    { col: 1, row: -1 },
+    { col: -1, row: 1 },
+    { col: -1, row: -1 },
   ];
 
   function shuffleArray(items) {
@@ -98,6 +197,26 @@
     }
 
     return copy;
+  }
+
+  function randomIntInclusive(minimum, maximum) {
+    return minimum + Math.floor(Math.random() * (maximum - minimum + 1));
+  }
+
+  function cellToPoint(cell) {
+    return {
+      x: mapConfig.gridOffsetX + cell.col * mapConfig.cellSize + mapConfig.cellSize / 2,
+      y: mapConfig.gridOffsetY + cell.row * mapConfig.cellSize + mapConfig.cellSize / 2,
+    };
+  }
+
+  function getCellRect(cell, width = 1, height = 1) {
+    return {
+      x: mapConfig.gridOffsetX + cell.col * mapConfig.cellSize,
+      y: mapConfig.gridOffsetY + cell.row * mapConfig.cellSize,
+      width: width * mapConfig.cellSize,
+      height: height * mapConfig.cellSize,
+    };
   }
 
   function createItem(itemKey, overrides = {}) {
@@ -121,34 +240,318 @@
     };
   }
 
-  function createPickupPoint(template, position) {
-    const items = template.itemKeys.map((itemKey, index) =>
-      createItem(itemKey, {
-        id: `${template.id}-ITEM-${index + 1}`,
-        pontoId: template.id,
-      }),
-    );
+  function createPickupPoint(index, siteLabel, itemKey, cell) {
+    const point = cellToPoint(cell);
+    const pointId = `NODE-${index + 1}`;
 
     return {
-      id: template.id,
-      x: position.x,
-      y: position.y,
-      label: template.label,
-      items,
+      id: pointId,
+      x: point.x,
+      y: point.y,
+      gridCol: cell.col,
+      gridRow: cell.row,
+      label: siteLabel,
+      items: [
+        createItem(itemKey, {
+          id: `${pointId}-ITEM-1`,
+          pontoId: pointId,
+        }),
+      ],
       collected: false,
     };
   }
 
-  function createBaseNode(position) {
+  function createBaseNode(cell) {
+    const point = cellToPoint(cell);
+
     return {
       id: "Base",
-      x: position.x,
-      y: position.y,
+      x: point.x,
+      y: point.y,
+      gridCol: cell.col,
+      gridRow: cell.row,
       kind: "base",
     };
   }
 
-  function createPlayerStart(baseNode) {
+  function cloneMatrix(rows, cols, initialValue) {
+    return Array.from({ length: rows }, () => Array.from({ length: cols }, () => initialValue));
+  }
+
+  function getCellKey(cell) {
+    return `${cell.col},${cell.row}`;
+  }
+
+  function isInsideGrid(col, row) {
+    return col >= 0 && col < mapConfig.gridCols && row >= 0 && row < mapConfig.gridRows;
+  }
+
+  function isBlockedCell(terrainMap, cell) {
+    return terrainMap.blocked[cell.row][cell.col];
+  }
+
+  function isWalkableCell(terrainMap, cell) {
+    return isInsideGrid(cell.col, cell.row) && !isBlockedCell(terrainMap, cell);
+  }
+
+  function getTerrainCost(terrainTypeId) {
+    return terrainCatalog[terrainTypeId]?.cost ?? terrainCatalog.areia_comum.cost;
+  }
+
+  function setTerrainType(terrainMap, cell, terrainTypeId) {
+    if (!isWalkableCell(terrainMap, cell)) {
+      return;
+    }
+
+    terrainMap.terrainTypes[cell.row][cell.col] = terrainTypeId;
+    terrainMap.costs[cell.row][cell.col] = getTerrainCost(terrainTypeId);
+  }
+
+  function manhattanDistance(cellA, cellB) {
+    return Math.abs(cellA.col - cellB.col) + Math.abs(cellA.row - cellB.row);
+  }
+
+  function reconstructCellPath(cameFrom, targetKey) {
+    const path = [];
+    let currentKey = targetKey;
+
+    while (currentKey) {
+      const [col, row] = currentKey.split(",").map(Number);
+      path.unshift({ col, row });
+      currentKey = cameFrom.get(currentKey) ?? null;
+    }
+
+    return path;
+  }
+
+  function findOrthogonalPath(startCell, endCell, terrainMap) {
+    const queue = [startCell];
+    const cameFrom = new Map([[getCellKey(startCell), null]]);
+
+    while (queue.length > 0) {
+      const currentCell = queue.shift();
+
+      if (currentCell.col === endCell.col && currentCell.row === endCell.row) {
+        return reconstructCellPath(cameFrom, getCellKey(currentCell));
+      }
+
+      const neighbors = orthogonalDirections
+        .map((direction) => ({
+          col: currentCell.col + direction.col,
+          row: currentCell.row + direction.row,
+        }))
+        .filter((neighbor) => isWalkableCell(terrainMap, neighbor))
+        .sort(
+          (leftCell, rightCell) =>
+            manhattanDistance(leftCell, endCell) - manhattanDistance(rightCell, endCell),
+        );
+
+      for (const neighbor of neighbors) {
+        const neighborKey = getCellKey(neighbor);
+
+        if (cameFrom.has(neighborKey)) {
+          continue;
+        }
+
+        cameFrom.set(neighborKey, getCellKey(currentCell));
+        queue.push(neighbor);
+      }
+    }
+
+    return [];
+  }
+
+  function createTerrainMap() {
+    const blocked = cloneMatrix(mapConfig.gridRows, mapConfig.gridCols, false);
+    const terrainTypes = cloneMatrix(mapConfig.gridRows, mapConfig.gridCols, terrainCatalog.areia_comum.id);
+    const costs = cloneMatrix(mapConfig.gridRows, mapConfig.gridCols, terrainCatalog.areia_comum.cost);
+    const obstacleZones = shuffleArray(obstacleTemplates).slice(0, randomIntInclusive(2, 3));
+
+    for (const zone of obstacleZones) {
+      for (let row = zone.row; row < zone.row + zone.height; row += 1) {
+        for (let col = zone.col; col < zone.col + zone.width; col += 1) {
+          if (isInsideGrid(col, row)) {
+            blocked[row][col] = true;
+            costs[row][col] = Number.POSITIVE_INFINITY;
+          }
+        }
+      }
+    }
+
+    return {
+      cellSize: mapConfig.cellSize,
+      cols: mapConfig.gridCols,
+      rows: mapConfig.gridRows,
+      originX: mapConfig.gridOffsetX,
+      originY: mapConfig.gridOffsetY,
+      blocked,
+      terrainTypes,
+      costs,
+      minCost: Math.min(...Object.values(terrainCatalog).map((terrainType) => terrainType.cost)),
+      obstacleZones: obstacleZones.map((zone) => ({
+        ...zone,
+        cellWidth: zone.width,
+        cellHeight: zone.height,
+        ...getCellRect(zone, zone.width, zone.height),
+      })),
+      duneZones: [],
+      trailCells: [],
+    };
+  }
+
+  function applyDuneFields(terrainMap) {
+    const selectedZones = shuffleArray(duneZoneTemplates).slice(0, randomIntInclusive(3, 4));
+
+    for (const zone of selectedZones) {
+      for (let row = zone.row; row < zone.row + zone.height; row += 1) {
+        for (let col = zone.col; col < zone.col + zone.width; col += 1) {
+          setTerrainType(terrainMap, { col, row }, terrainCatalog.duna_pesada.id);
+        }
+      }
+    }
+
+    terrainMap.duneZones = selectedZones.map((zone) => ({
+      ...zone,
+      ...getCellRect(zone, zone.width, zone.height),
+    }));
+  }
+
+  function applyRuinDebris(terrainMap) {
+    for (const zone of terrainMap.obstacleZones) {
+      for (let row = zone.row - 1; row <= zone.row + zone.cellHeight; row += 1) {
+        for (let col = zone.col - 1; col <= zone.col + zone.cellWidth; col += 1) {
+          setTerrainType(terrainMap, { col, row }, terrainCatalog.entulho_ruina.id);
+        }
+      }
+    }
+  }
+
+  function applyTrailNetwork(terrainMap, baseCell, pickupCells) {
+    const connectedCells = [baseCell];
+    const trailCellKeys = new Set();
+    const orderedPickupCells = [...pickupCells].sort(
+      (leftCell, rightCell) => manhattanDistance(baseCell, leftCell) - manhattanDistance(baseCell, rightCell),
+    );
+
+    setTerrainType(terrainMap, baseCell, terrainCatalog.trilha_firme.id);
+    trailCellKeys.add(getCellKey(baseCell));
+
+    for (const pickupCell of orderedPickupCells) {
+      let bestPath = null;
+
+      for (const connectedCell of connectedCells) {
+        const candidatePath = findOrthogonalPath(connectedCell, pickupCell, terrainMap);
+
+        if (candidatePath.length === 0) {
+          continue;
+        }
+
+        if (!bestPath || candidatePath.length < bestPath.length) {
+          bestPath = candidatePath;
+        }
+      }
+
+      if (!bestPath) {
+        continue;
+      }
+
+      for (const cell of bestPath) {
+        setTerrainType(terrainMap, cell, terrainCatalog.trilha_firme.id);
+        trailCellKeys.add(getCellKey(cell));
+      }
+
+      connectedCells.push(pickupCell);
+    }
+
+    terrainMap.trailCells = Array.from(trailCellKeys).map((cellKey) => {
+      const [col, row] = cellKey.split(",").map(Number);
+
+      return { col, row };
+    });
+  }
+
+  function applyIntentionalTerrainLayout(terrainMap, baseCell, pickupCells) {
+    applyDuneFields(terrainMap);
+    applyRuinDebris(terrainMap);
+    applyTrailNetwork(terrainMap, baseCell, pickupCells);
+
+    for (const pointCell of [baseCell, ...pickupCells]) {
+      setTerrainType(terrainMap, pointCell, terrainCatalog.trilha_firme.id);
+
+      for (const direction of surroundingDirections) {
+        setTerrainType(
+          terrainMap,
+          {
+            col: pointCell.col + direction.col,
+            row: pointCell.row + direction.row,
+          },
+          terrainCatalog.trilha_firme.id,
+        );
+      }
+    }
+  }
+
+  function positionToCell(position) {
+    return {
+      col: Math.floor((position.x - mapConfig.gridOffsetX) / mapConfig.cellSize),
+      row: Math.floor((position.y - mapConfig.gridOffsetY) / mapConfig.cellSize),
+    };
+  }
+
+  function isBlockedPosition(position, terrainMap) {
+    const cell = positionToCell(position);
+
+    if (!isInsideGrid(cell.col, cell.row)) {
+      return true;
+    }
+
+    return terrainMap.blocked[cell.row][cell.col];
+  }
+
+  function getReachableCandidates(baseCell, terrainMap, candidateCells) {
+    const queue = [baseCell];
+    const visited = new Set([`${baseCell.col},${baseCell.row}`]);
+    const reachableKeys = new Set();
+    const candidateKeySet = new Set(candidateCells.map((cell) => `${cell.col},${cell.row}`));
+    const directions = [
+      { col: 1, row: 0 },
+      { col: -1, row: 0 },
+      { col: 0, row: 1 },
+      { col: 0, row: -1 },
+    ];
+
+    while (queue.length > 0) {
+      const currentCell = queue.shift();
+      const currentKey = `${currentCell.col},${currentCell.row}`;
+
+      if (candidateKeySet.has(currentKey)) {
+        reachableKeys.add(currentKey);
+      }
+
+      for (const direction of directions) {
+        const nextCell = {
+          col: currentCell.col + direction.col,
+          row: currentCell.row + direction.row,
+        };
+        const nextKey = `${nextCell.col},${nextCell.row}`;
+
+        if (!isInsideGrid(nextCell.col, nextCell.row) || visited.has(nextKey) || isBlockedCell(terrainMap, nextCell)) {
+          continue;
+        }
+
+        visited.add(nextKey);
+        queue.push(nextCell);
+      }
+    }
+
+    return candidateCells.filter((cell) => reachableKeys.has(`${cell.col},${cell.row}`));
+  }
+
+  function getWalkableCandidateCells(terrainMap) {
+    return mapConfig.candidateCells.filter((cell) => !isBlockedCell(terrainMap, cell));
+  }
+
+  function createPlayerStart(baseNode, terrainMap) {
     const spawnOffsets = shuffleArray(mapConfig.playerSpawnOffsets);
 
     for (const offset of spawnOffsets) {
@@ -161,78 +564,66 @@
         candidate.x >= mapConfig.playerRadius &&
         candidate.x <= mapConfig.canvasWidth - mapConfig.playerRadius &&
         candidate.y >= mapConfig.playerRadius &&
-        candidate.y <= mapConfig.canvasHeight - mapConfig.playerRadius
+        candidate.y <= mapConfig.canvasHeight - mapConfig.playerRadius &&
+        !isBlockedPosition(candidate, terrainMap)
       ) {
         return candidate;
       }
     }
 
     return {
-      x: baseNode.x + 24,
-      y: baseNode.y - 8,
-    };
-  }
-
-  function createScenery(availablePositions) {
-    const positions = shuffleArray(availablePositions);
-
-    const ruinSites = positions.slice(0, 3).map((position, index) => ({
-      id: `Ruin-${index + 1}`,
-      x: position.x - 56,
-      y: position.y - 34,
-      width: 112 + (index % 2) * 24,
-      height: 62 + (index % 3) * 10,
-      rotation: [-0.12, 0.08, -0.05][index % 3],
-    }));
-
-    const rockClusters = positions.slice(3, 9).map((position, index) => ({
-      id: `Rock-${index + 1}`,
-      x: position.x + (index % 2 === 0 ? -26 : 24),
-      y: position.y + (index % 3 === 0 ? 28 : -24),
-      radius: 4 + (index % 3),
-      offsetX: (index % 2 === 0 ? 10 : -12),
-      offsetY: index % 2 === 0 ? -8 : 10,
-    }));
-
-    const duneBands = [
-      { y: 92, amplitude: 16, wavelength: 190, thickness: 18, alpha: 0.14 },
-      { y: 212, amplitude: 20, wavelength: 240, thickness: 22, alpha: 0.12 },
-      { y: 372, amplitude: 14, wavelength: 210, thickness: 16, alpha: 0.1 },
-    ].map((band, index) => ({
-      ...band,
-      phase: Math.random() * Math.PI * 2 + index,
-    }));
-
-    return {
-      ruinSites,
-      rockClusters,
-      duneBands,
+      x: baseNode.x,
+      y: baseNode.y + mapConfig.playerRadius + 2,
     };
   }
 
   function createNewGame() {
-    const shuffledPositions = shuffleArray(mapConfig.candidatePositions);
-    const shuffledTemplates = shuffleArray(pickupTemplates);
-    const baseNode = createBaseNode(shuffledPositions[0]);
-    const pickupPoints = shuffledTemplates.map((template, index) =>
-      createPickupPoint(template, shuffledPositions[index + 1]),
-    );
-    const usedPositions = pickupTemplates.length + 1;
+    const itemKeys = Object.keys(itemCatalog);
 
-    return {
-      baseNode,
-      pickupPoints,
-      playerStart: createPlayerStart(baseNode),
-      scenery: createScenery(shuffledPositions.slice(usedPositions)),
-    };
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      const terrainMap = createTerrainMap();
+      const pickupCount = randomIntInclusive(
+        mapConfig.pickupCountRange.min,
+        mapConfig.pickupCountRange.max,
+      );
+      const walkableCandidates = shuffleArray(getWalkableCandidateCells(terrainMap));
+
+      if (walkableCandidates.length < pickupCount + 1) {
+        continue;
+      }
+
+      const baseCell = walkableCandidates[0];
+      const reachableCandidates = getReachableCandidates(baseCell, terrainMap, walkableCandidates);
+
+      if (reachableCandidates.length < pickupCount + 1) {
+        continue;
+      }
+
+      const pickupCells = shuffleArray(reachableCandidates.slice(1)).slice(0, pickupCount);
+      applyIntentionalTerrainLayout(terrainMap, baseCell, pickupCells);
+      const selectedLabels = shuffleArray(siteLabels).slice(0, pickupCount);
+      const selectedItemKeys = shuffleArray(itemKeys).slice(0, pickupCount);
+      const baseNode = createBaseNode(baseCell);
+      const pickupPoints = pickupCells.map((cell, index) =>
+        createPickupPoint(index, selectedLabels[index], selectedItemKeys[index], cell),
+      );
+
+      return {
+        baseNode,
+        pickupPoints,
+        playerStart: createPlayerStart(baseNode, terrainMap),
+        terrainMap,
+      };
+    }
+
+    throw new Error("Nao foi possivel gerar um mapa conectado para a fase.");
   }
 
   window.gameData = {
     itemCatalog,
-    pickupTemplates,
     mapConfig,
+    terrainCatalog,
     createItem,
-    createPickupPoint,
     createNewGame,
   };
 })();
