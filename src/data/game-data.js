@@ -21,12 +21,12 @@
       { x: 560, y: 430 },
     ],
     playerSpawnOffsets: [
-      { x: 24, y: -8 },
-      { x: -24, y: -8 },
-      { x: 18, y: 20 },
-      { x: -18, y: 20 },
-      { x: 0, y: -28 },
-      { x: 30, y: 10 },
+      { x: 34, y: -14 },
+      { x: -34, y: -14 },
+      { x: 26, y: 28 },
+      { x: -26, y: 28 },
+      { x: 0, y: -38 },
+      { x: 38, y: 14 },
     ],
   };
 
@@ -173,6 +173,43 @@
     };
   }
 
+  function createScenery(availablePositions) {
+    const positions = shuffleArray(availablePositions);
+
+    const ruinSites = positions.slice(0, 3).map((position, index) => ({
+      id: `Ruin-${index + 1}`,
+      x: position.x - 56,
+      y: position.y - 34,
+      width: 112 + (index % 2) * 24,
+      height: 62 + (index % 3) * 10,
+      rotation: [-0.12, 0.08, -0.05][index % 3],
+    }));
+
+    const rockClusters = positions.slice(3, 9).map((position, index) => ({
+      id: `Rock-${index + 1}`,
+      x: position.x + (index % 2 === 0 ? -26 : 24),
+      y: position.y + (index % 3 === 0 ? 28 : -24),
+      radius: 4 + (index % 3),
+      offsetX: (index % 2 === 0 ? 10 : -12),
+      offsetY: index % 2 === 0 ? -8 : 10,
+    }));
+
+    const duneBands = [
+      { y: 92, amplitude: 16, wavelength: 190, thickness: 18, alpha: 0.14 },
+      { y: 212, amplitude: 20, wavelength: 240, thickness: 22, alpha: 0.12 },
+      { y: 372, amplitude: 14, wavelength: 210, thickness: 16, alpha: 0.1 },
+    ].map((band, index) => ({
+      ...band,
+      phase: Math.random() * Math.PI * 2 + index,
+    }));
+
+    return {
+      ruinSites,
+      rockClusters,
+      duneBands,
+    };
+  }
+
   function createNewGame() {
     const shuffledPositions = shuffleArray(mapConfig.candidatePositions);
     const shuffledTemplates = shuffleArray(pickupTemplates);
@@ -180,11 +217,13 @@
     const pickupPoints = shuffledTemplates.map((template, index) =>
       createPickupPoint(template, shuffledPositions[index + 1]),
     );
+    const usedPositions = pickupTemplates.length + 1;
 
     return {
       baseNode,
       pickupPoints,
       playerStart: createPlayerStart(baseNode),
+      scenery: createScenery(shuffledPositions.slice(usedPositions)),
     };
   }
 

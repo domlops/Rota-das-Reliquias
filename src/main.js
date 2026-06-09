@@ -8,7 +8,10 @@ const playerPositionLabel = document.getElementById("playerPosition");
 const playerMovementLabel = document.getElementById("playerMovement");
 const pickupSummaryLabel = document.getElementById("pickupSummary");
 const itemSummaryLabel = document.getElementById("itemSummary");
+const inventoryStatusLabel = document.getElementById("inventoryStatus");
 const generationStatusLabel = document.getElementById("generationStatus");
+const interactionStatusLabel = document.getElementById("interactionStatus");
+const lastCollectedItemLabel = document.getElementById("lastCollectedItem");
 
 const colors = {
   grid: "rgba(31, 28, 24, 0.12)",
@@ -16,6 +19,7 @@ const colors = {
   base: "#144552",
   collectible: "#d08c30",
   collected: "#8f8a7d",
+  nearby: "#c5572d",
   route: "#a63d40",
   player: "#206a5d",
   playerCore: "#f6f0e4",
@@ -38,6 +42,11 @@ const state = {
   generationCount: 0,
   base: null,
   pickupPoints: [],
+  scenery: null,
+  inventory: window.inventorySystem.createInventory(),
+  nearbyPickupId: null,
+  interactionMessage: "Aproxime-se de um ponto de coleta",
+  lastCollectedItemName: "Nenhuma coleta realizada",
   player: {
     x: 0,
     y: 0,
@@ -74,6 +83,14 @@ function getAvailablePickupPoints() {
   return state.pickupPoints.filter((pickupPoint) => !pickupPoint.collected);
 }
 
+function getRemainingItems(pickupPoint) {
+  return pickupPoint.items.filter((item) => !item.coletado);
+}
+
+function getNextCollectibleItem(pickupPoint) {
+  return getRemainingItems(pickupPoint)[0] ?? null;
+}
+
 function getTotalItemCount() {
   return state.pickupPoints.reduce((total, pickupPoint) => total + pickupPoint.items.length, 0);
 }
@@ -85,6 +102,10 @@ function getCollectedItemCount() {
   );
 }
 
+function getStoredInventoryCount() {
+  return state.inventory.getCount();
+}
+
 function getRoutePreview() {
   if (!state.base) {
     return [];
@@ -94,15 +115,31 @@ function getRoutePreview() {
 }
 
 function getPickupDisplayLabel(pickupPoint) {
-  if (pickupPoint.items.length === 1) {
-    return pickupPoint.items[0].nome;
+  const remainingItems = getRemainingItems(pickupPoint);
+
+  if (remainingItems.length === 0) {
+    return `${pickupPoint.label} (coletado)`;
   }
 
-  return `${pickupPoint.label} (${pickupPoint.items.length} itens)`;
+  if (remainingItems.length === 1) {
+    return remainingItems[0].nome;
+  }
+
+  return `${pickupPoint.label} (${remainingItems.length} itens)`;
 }
 
 function drawBackground() {
   context.clearRect(0, 0, canvas.width, canvas.height);
+
+  const skyGradient = context.createLinearGradient(0, 0, 0, canvas.height);
+  skyGradient.addColorStop(0, "#e7d1ab");
+  skyGradient.addColorStop(1, "#d0af77");
+  context.fillStyle = skyGradient;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawDuneBands();
+  drawRuinSites();
+  drawRockClusters();
 
   for (let x = 0; x <= canvas.width; x += 48) {
     context.beginPath();
@@ -121,11 +158,93 @@ function drawBackground() {
     context.lineWidth = 1;
     context.stroke();
   }
+}
 
-  context.fillStyle = "rgba(255, 255, 255, 0.22)";
-  context.fillRect(40, 48, 180, 90);
-  context.fillRect(620, 60, 240, 120);
-  context.fillRect(310, 320, 200, 150);
+function drawDuneBands() {
+  if (!state.scenery) {
+    return;
+  }
+
+  for (const band of state.scenery.duneBands) {
+    context.save();
+    context.beginPath();
+    context.moveTo(0, band.y);
+
+    for (let x = 0; x <= canvas.width; x += 24) {
+      const waveY = band.y + Math.sin(x / band.wavelength + band.phase) * band.amplitude;
+      context.lineTo(x, waveY);
+    }
+
+    for (let x = canvas.width; x >= 0; x -= 24) {
+      const waveY =
+        band.y +
+        band.thickness +
+        Math.sin(x / (band.wavelength * 0.9) + band.phase + 0.7) * (band.amplitude * 0.45);
+      context.lineTo(x, waveY);
+    }
+
+    context.closePath();
+    context.fillStyle = `rgba(245, 233, 204, ${band.alpha})`;
+    context.fill();
+    context.restore();
+  }
+}
+
+function drawRuinSites() {
+  if (!state.scenery) {
+    return;
+  }
+
+  for (const ruin of state.scenery.ruinSites) {
+    const halfWidth = ruin.width / 2;
+    const halfHeight = ruin.height / 2;
+    const notch = 12;
+
+    context.save();
+    context.translate(ruin.x + halfWidth, ruin.y + halfHeight);
+    context.rotate(ruin.rotation);
+    context.beginPath();
+    context.moveTo(-halfWidth + notch, -halfHeight);
+    context.lineTo(halfWidth - notch, -halfHeight);
+    context.lineTo(halfWidth, -halfHeight + notch);
+    context.lineTo(halfWidth, halfHeight - notch);
+    context.lineTo(halfWidth - notch, halfHeight);
+    context.lineTo(-halfWidth + notch, halfHeight);
+    context.lineTo(-halfWidth, halfHeight - notch);
+    context.lineTo(-halfWidth, -halfHeight + notch);
+    context.closePath();
+    context.fillStyle = "rgba(242, 227, 198, 0.34)";
+    context.strokeStyle = "rgba(120, 95, 61, 0.18)";
+    context.lineWidth = 2;
+    context.fill();
+    context.stroke();
+    context.beginPath();
+    context.moveTo(-halfWidth / 2, -halfHeight + 8);
+    context.lineTo(-halfWidth / 2, halfHeight - 8);
+    context.moveTo(halfWidth / 5, -halfHeight + 8);
+    context.lineTo(halfWidth / 5, halfHeight - 8);
+    context.moveTo(-halfWidth + 8, 0);
+    context.lineTo(halfWidth - 8, 0);
+    context.stroke();
+    context.restore();
+  }
+}
+
+function drawRockClusters() {
+  if (!state.scenery) {
+    return;
+  }
+
+  for (const cluster of state.scenery.rockClusters) {
+    context.save();
+    context.fillStyle = "rgba(126, 94, 58, 0.22)";
+    context.beginPath();
+    context.arc(cluster.x, cluster.y, cluster.radius, 0, Math.PI * 2);
+    context.arc(cluster.x + cluster.offsetX, cluster.y + cluster.offsetY, cluster.radius - 1, 0, Math.PI * 2);
+    context.arc(cluster.x - cluster.offsetY * 0.4, cluster.y + cluster.offsetX * 0.3, cluster.radius - 2, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  }
 }
 
 function drawRoute() {
@@ -170,7 +289,9 @@ function drawNode(node, radius, fill) {
 }
 
 function drawPickupItemCount(pickupPoint) {
-  if (pickupPoint.items.length <= 1) {
+  const remainingItems = getRemainingItems(pickupPoint);
+
+  if (remainingItems.length <= 1) {
     return;
   }
 
@@ -183,17 +304,25 @@ function drawPickupItemCount(pickupPoint) {
 
   context.fillStyle = colors.text;
   context.font = "bold 11px Trebuchet MS";
-  context.fillText(String(pickupPoint.items.length), pickupPoint.x + 8, pickupPoint.y - 8);
+  context.fillText(String(remainingItems.length), pickupPoint.x + 8, pickupPoint.y - 8);
 }
 
 function drawNodes() {
   drawNode(state.base, 18, colors.base);
 
   for (const pickupPoint of state.pickupPoints) {
-    const fillColor = pickupPoint.collected ? colors.collected : colors.collectible;
+    let fillColor = colors.collectible;
+
+    if (pickupPoint.collected) {
+      fillColor = colors.collected;
+    } else if (pickupPoint.id === state.nearbyPickupId) {
+      fillColor = colors.nearby;
+    }
 
     drawNode(pickupPoint, 14, fillColor);
-    drawPickupItemCount(pickupPoint);
+    if (!pickupPoint.collected) {
+      drawPickupItemCount(pickupPoint);
+    }
     context.fillStyle = colors.text;
     context.font = "13px Trebuchet MS";
     context.fillText(getPickupDisplayLabel(pickupPoint), pickupPoint.x - 42, pickupPoint.y + 30);
@@ -202,21 +331,18 @@ function drawNodes() {
 
 function drawPlayer() {
   const { x, y, radius } = state.player;
+  const size = radius * 2;
 
   context.save();
-  context.beginPath();
-  context.arc(x, y, radius, 0, Math.PI * 2);
   context.fillStyle = colors.player;
   context.shadowColor = colors.shadow;
   context.shadowBlur = 12;
-  context.fill();
+  context.fillRect(x - radius, y - radius, size, size);
   context.restore();
 
   context.save();
-  context.beginPath();
-  context.arc(x, y, 4, 0, Math.PI * 2);
   context.fillStyle = colors.playerCore;
-  context.fill();
+  context.fillRect(x - 3, y - 3, 6, 6);
   context.restore();
 
   context.fillStyle = colors.text;
@@ -226,14 +352,15 @@ function drawPlayer() {
 
 function drawLegend() {
   context.fillStyle = "rgba(248, 242, 231, 0.92)";
-  context.fillRect(32, 452, 330, 64);
+  context.fillRect(32, 446, 340, 72);
   context.strokeStyle = "rgba(31, 28, 24, 0.12)";
-  context.strokeRect(32, 452, 330, 64);
+  context.strokeRect(32, 446, 340, 72);
 
   context.fillStyle = colors.text;
   context.font = "12px Trebuchet MS";
-  context.fillText("Base: retorno seguro | Pontos dourados: coleta disponivel", 48, 482);
-  context.fillText("Circulo claro com numero: mais de um item no mesmo ponto", 48, 502);
+  context.fillText("Quadrado verde: jogador | Circulos dourados: coleta disponivel", 48, 476);
+  context.fillText("Base azul: retorno seguro | Circulo claro: varios itens no ponto", 48, 496);
+  context.fillText("Ruinas e dunas agora variam a cada novo jogo", 48, 514);
 }
 
 function render() {
@@ -291,16 +418,49 @@ function updatePickupLabels() {
   itemSummaryLabel.textContent = `${totalItems} itens / ${collectedItems} coletados`;
 }
 
+function updateInventoryLabel() {
+  const itemCount = getStoredInventoryCount();
+  inventoryStatusLabel.textContent = `${itemCount} item(ns) armazenado(s)`;
+}
+
 function updateGenerationLabel() {
   generationStatusLabel.textContent = `Jogo ${state.generationCount}`;
 }
 
+function updateInteractionLabels() {
+  interactionStatusLabel.textContent = state.interactionMessage;
+  lastCollectedItemLabel.textContent = state.lastCollectedItemName;
+}
+
+function updateInteractionState() {
+  const nearbyPickupPoint = getNearbyPickupPoint();
+
+  state.nearbyPickupId = nearbyPickupPoint?.id ?? null;
+
+  if (!nearbyPickupPoint) {
+    state.interactionMessage = "Nenhum ponto de coleta ao alcance";
+    return;
+  }
+
+  const remainingItems = getRemainingItems(nearbyPickupPoint);
+
+  if (remainingItems.length === 1) {
+    state.interactionMessage = `Pressione E para coletar ${remainingItems[0].nome}`;
+    return;
+  }
+
+  state.interactionMessage = `Pressione E para coletar itens em ${nearbyPickupPoint.id}`;
+}
+
 function updateStatusPanel() {
   syncPickupStates();
+  updateInteractionState();
   updateRouteLabels();
   updatePlayerLabels();
   updatePickupLabels();
+  updateInventoryLabel();
   updateGenerationLabel();
+  updateInteractionLabels();
 }
 
 function isMovingUp() {
@@ -386,6 +546,45 @@ function updatePlayerPosition(deltaTime) {
   player.y = clamp(nextY, minY, maxY);
 }
 
+function getNearbyPickupPoint() {
+  const interactionDistance = 36;
+
+  for (const pickupPoint of getAvailablePickupPoints()) {
+    const distance = distanceBetween(state.player, pickupPoint);
+
+    if (distance <= interactionDistance) {
+      return pickupPoint;
+    }
+  }
+
+  return null;
+}
+
+function collectNearbyItem() {
+  const pickupPoint = getNearbyPickupPoint();
+
+  if (!pickupPoint) {
+    return false;
+  }
+
+  const item = getNextCollectibleItem(pickupPoint);
+
+  if (!item) {
+    return false;
+  }
+
+  state.inventory.addItem({
+    ...item,
+    coletado: true,
+    coletadoEm: pickupPoint.id,
+    geracao: state.generationCount,
+  });
+  item.coletado = true;
+  syncPickupStates();
+  state.lastCollectedItemName = `${item.nome} coletado em ${pickupPoint.id}`;
+  return true;
+}
+
 function handleMovementKey(event, isPressed) {
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
 
@@ -411,6 +610,11 @@ function startNewGame() {
   state.generationCount += 1;
   state.base = session.baseNode;
   state.pickupPoints = session.pickupPoints;
+  state.scenery = session.scenery;
+  state.inventory = window.inventorySystem.createInventory();
+  state.nearbyPickupId = null;
+  state.interactionMessage = "Aproxime-se de um ponto de coleta";
+  state.lastCollectedItemName = "Nenhuma coleta realizada";
   state.player.x = session.playerStart.x;
   state.player.y = session.playerStart.y;
   state.player.directionLabel = "Parado";
@@ -429,6 +633,18 @@ function frame(currentTime) {
 }
 
 window.addEventListener("keydown", (event) => {
+  if (event.repeat) {
+    return;
+  }
+
+  if (event.key.toLowerCase() === "e") {
+    collectNearbyItem();
+    updateStatusPanel();
+    render();
+    event.preventDefault();
+    return;
+  }
+
   handleMovementKey(event, true);
 });
 

@@ -66,11 +66,19 @@
             </div>
             <div>
               <dt>Inventario</dt>
-              <dd>Planejado para proxima etapa</dd>
+              <dd id="inventoryStatus">0 itens armazenados</dd>
             </div>
             <div>
               <dt>Geracao</dt>
               <dd id="generationStatus">Mapa inicial</dd>
+            </div>
+            <div>
+              <dt>Interacao</dt>
+              <dd id="interactionStatus">Aproxime-se de um ponto de coleta</dd>
+            </div>
+            <div>
+              <dt>Ultima coleta</dt>
+              <dd id="lastCollectedItem">Nenhuma coleta realizada</dd>
             </div>
           </dl>
         </section>
@@ -103,12 +111,14 @@
             <li>O marcador verde deve permanecer dentro do mapa.</li>
             <li>O painel deve atualizar coordenadas e direcao.</li>
             <li>Use `Novo jogo` para redistribuir base, itens e inicio.</li>
+            <li>Fique perto de um ponto e pressione `E` para coletar.</li>
           </ul>
         </section>
       </aside>
     </main>
 
     <script src="src/data/game-data.js"></script>
+    <script src="src/systems/inventory.js"></script>
     <script src="src/main.js"></script>
   </body>
 </html>
