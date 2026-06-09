@@ -1,96 +1,164 @@
 # Rota das Reliquias
 
-Rota das Reliquias e um jogo academico de exploracao 2D com coleta e otimizacao de rotas. O jogador percorre um mapa compacto, recolhe reliquias espalhadas e pode consultar a melhor sequencia para visitar os objetivos restantes.
+Rota das Reliquias e um jogo academico de exploracao 2D feito com HTML, CSS e JavaScript. O objetivo do jogador e atravessar um mapa com terrenos de custo diferente, coletar reliquias espalhadas e voltar para a base com a melhor eficiencia possivel.
 
-## Genero
+O projeto foi construido para demonstrar, dentro de um MVP jogavel, dois problemas computacionais aplicados ao gameplay:
 
-Exploracao 2D com puzzle de rota e gerenciamento simples de inventario.
+- `TSP` para sugerir a melhor ordem de visita aos pontos de coleta
+- `ordenacao` para organizar o inventario por criterio util ao jogador
+
+## Estado atual do MVP
+
+O jogo ja possui:
+
+- mapa gerado a cada nova partida
+- base, pontos de coleta e posicao inicial randomizados
+- entre `5` e `8` pontos de coleta por fase
+- um item por ponto de coleta
+- terrenos distintos com custo real de deslocamento
+- obstaculos bloqueando parte do mapa
+- rota sugerida calculada sobre custo de caminho, nao sobre linha reta
+- coleta de itens com a tecla `E`
+- retorno obrigatorio a base ao final da coleta
+- inventario com abertura por modal
+- ordenacao do inventario por raridade, peso e valor
+- HUD de expedicao com estados visuais de alerta
 
 ## Tecnologias utilizadas
 
-- HTML
-- CSS
-- JavaScript
-- Canvas 2D
+- `HTML5`
+- `CSS3`
+- `JavaScript`
+- `Canvas 2D`
+
+Nao ha dependencias de build nem framework frontend. O projeto roda como pagina estatica.
 
 ## Como executar
 
+### Opcao mais simples
+
 1. Abra o arquivo `index.html` em um navegador moderno.
-2. Se preferir, use uma extensao de servidor local para recarregamento automatico durante o desenvolvimento.
 
-## Controles planejados
+### Opcao recomendada para desenvolvimento
 
-- `WASD` ou setas para mover o jogador
-- `E` para coletar itens
-- `I` para abrir ou fechar o inventario
-- `R` para recalcular a rota
+1. Rode um servidor local simples na pasta do projeto.
+2. Abra `index.html` pelo navegador usando esse servidor.
 
-## TSP no jogo
+Isso ajuda em recarregamento, testes manuais e apresentacao.
 
-O jogo usa o `Travelling Salesman Problem` para sugerir a melhor rota entre os pontos de coleta restantes e a base.
+## Controles
 
-Abordagem planejada:
+- `WASD` ou `Setas`: mover o jogador
+- `E`: coletar reliquia quando estiver proximo
+- `I`: abrir ou fechar o inventario
+- `R`: mostrar ou ocultar a melhor rota sugerida
+- `Novo jogo`: gerar uma nova expedicao
 
-- Ate 8 pontos: solucao exata por forca bruta
-- Acima de 8 pontos: heuristica de vizinho mais proximo
+## Loop principal
 
-Isso permite explicar a diferenca entre uma resposta otima e uma heuristica mais leve.
+1. Iniciar uma nova expedicao.
+2. Ler o terreno atual e os passos restantes.
+3. Seguir a rota sugerida ou explorar manualmente.
+4. Coletar reliquias nos pontos marcados.
+5. Abrir o inventario e ordenar os itens coletados.
+6. Voltar para a base para concluir a partida.
 
-## Ordenacao no inventario
+## Algoritmos usados no projeto
 
-O inventario podera ser ordenado por:
+### Rota sugerida
 
-- nome
-- peso
-- valor
+O jogo calcula a melhor ordem de visita aos pontos restantes usando `TSP`.
+
+- ate `8` pontos: busca exata por permutacao
+- acima de `8` pontos: heuristica do vizinho mais proximo
+
+O custo entre dois pontos nao e a distancia em linha reta. Cada trecho usa `pathfinding` sobre a grade do mapa, considerando:
+
+- terrenos com custos diferentes
+- celulas bloqueadas
+- custo total de deslocamento ate a base
+
+### Inventario
+
+O inventario usa `merge sort` para ordenar os itens por:
+
 - raridade
-- tipo
+- peso crescente
+- peso decrescente
+- valor crescente
+- valor decrescente
 
-O algoritmo recomendado e `mergesort`, por ser estavel, previsivel e facil de justificar no contexto academico.
+## Complexidade e limitacoes
 
-## Estrutura do projeto
+### TSP
+
+- solucao exata: `O(n! * n)` no tempo
+- heuristica de vizinho mais proximo: `O(n^2)` no tempo, sem garantia de otimo global
+
+Limitacoes:
+
+- a solucao exata nao escala para mapas grandes
+- a heuristica pode perder rotas melhores
+- o custo de caminho depende do estado atual do mapa, entao recalculos frequentes podem crescer em custo se o mapa aumentar muito
+
+### Ordenacao
+
+- `merge sort`: `O(n log n)` no tempo
+- memoria auxiliar: `O(n)`
+
+Limitacoes:
+
+- usa memoria extra para a etapa de merge
+- para inventarios muito pequenos, a diferenca para algoritmos mais simples seria pouco perceptivel
+
+Mais detalhes tecnicos estao em [docs/algoritmos.md](docs/algoritmos.md).
+
+## Estrutura atual do repositorio
 
 ```text
 /
 |-- assets/
+|   `-- README.md
 |-- docs/
 |   |-- algoritmos.md
 |   |-- issues.md
 |   |-- proposta.md
+|   |-- testes-manuais.md
 |   `-- roteiro-implementacao.md
 |-- src/
-|   |-- algorithms/
 |   |-- data/
-|   |-- entities/
+|   |   `-- game-data.js
 |   |-- systems/
-|   |-- ui/
+|   |   |-- inventory.js
+|   |   |-- inventory-sort.js
+|   |   `-- tsp.js
 |   `-- main.js
 |-- styles/
 |   `-- main.css
-|-- .gitignore
 |-- index.html
 `-- README.md
 ```
 
-## Lista de funcionalidades
+## Arquivos principais
 
-### Ja criado nesta base
+- [index.html](index.html): estrutura da interface
+- [styles/main.css](styles/main.css): estilo do jogo, HUD e inventario
+- [src/main.js](src/main.js): loop principal, renderizacao, input e HUD
+- [src/data/game-data.js](src/data/game-data.js): geracao de mapa, itens, base, terrenos e pontos
+- [src/systems/tsp.js](src/systems/tsp.js): pathfinding e calculo da rota
+- [src/systems/inventory.js](src/systems/inventory.js): estrutura de inventario
+- [src/systems/inventory-sort.js](src/systems/inventory-sort.js): ordenacao dos itens
 
-- Estrutura inicial do repositorio
-- Tela inicial com canvas e painel lateral
-- Documentacao da proposta, das issues e das escolhas algoritmicas
+## Documentacao complementar
 
-### Planejado para o MVP
+- [docs/proposta.md](docs/proposta.md): visao inicial do projeto
+- [docs/issues.md](docs/issues.md): backlog em formato de issues
+- [docs/roteiro-implementacao.md](docs/roteiro-implementacao.md): roteiro de implementacao do MVP
+- [docs/algoritmos.md](docs/algoritmos.md): justificativa tecnica dos algoritmos
+- [docs/testes-manuais.md](docs/testes-manuais.md): roteiro curto de validacao do fluxo principal
 
-- Mapa com pontos de coleta
-- Movimentacao do jogador
-- Sistema de coleta
-- Inventario funcional
-- Ordenacao do inventario
-- Calculo e visualizacao da rota otima
+## Observacoes finais
 
-## Observacoes academicas
-
-- O projeto foi desenhado para manter escopo pequeno e apresentacao clara.
-- O foco principal esta na integracao entre gameplay e algoritmos.
-- As decisoes tecnicas priorizam legibilidade do codigo e facilidade de explicacao.
+- O projeto prioriza clareza academica e demonstracao jogavel.
+- O foco do MVP e mostrar algoritmo aplicado a uma decisao visivel para o jogador.
+- As proximas etapas naturais sao testes manuais finais, ajustes de balanceamento e revisao para apresentacao.

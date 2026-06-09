@@ -1,65 +1,158 @@
 # Escolhas Algoritmicas
 
-## Uso do TSP no jogo
+Este documento resume as escolhas algoritmicas do projeto e justifica como elas se conectam ao gameplay do MVP.
 
-O `Travelling Salesman Problem` foi escolhido porque o objetivo central do jogo e visitar varios pontos do mapa com o menor custo de deslocamento possivel. Isso transforma o TSP em uma mecanica visivel e facil de demonstrar: o jogador ve pontos espalhados e recebe uma sugestao de rota para coleta eficiente.
+## 1. TSP como problema central de rota
 
-## Abordagem escolhida para o TSP
+O jogo gira em torno de visitar varios pontos de coleta e retornar a base com o menor gasto possivel de passos. Esse objetivo se encaixa naturalmente no `Travelling Salesman Problem`, porque existe um conjunto de pontos a percorrer e uma rota a otimizar.
 
-### Para poucos pontos
+No projeto, o TSP nao aparece como elemento abstrato. Ele entra diretamente na interface:
 
-Usar **forca bruta** para ate 8 pontos de coleta restantes.
+- ordena os pontos restantes
+- exibe a melhor sequencia `P1...Pn`
+- recalcula a rota conforme o jogador coleta itens
+- considera o retorno final a base
 
-Motivos:
+## 2. Custo real de caminho
 
-- Facil de implementar e explicar.
-- Garante a rota otima.
-- Funciona bem no escopo pequeno do MVP.
+O jogo nao usa somente distancia em linha reta entre os pontos. Cada trecho entre origem e destino e calculado com base no caminho realmente percorrido no mapa.
 
-**Complexidade:** `O(n! * n)` no tempo, pois testa as permutacoes e calcula a distancia de cada rota candidata.
+Isso foi necessario porque o mapa atual possui:
 
-### Para muitos pontos
+- obstaculos bloqueados
+- grade navegavel
+- terrenos com custos diferentes
 
-Usar **vizinho mais proximo** como heuristica quando o numero de pontos for maior que 8.
+Terrenos usados no MVP:
 
-Motivos:
+- `trilha_firme`: custo `0.9`
+- `areia_comum`: custo `1.0`
+- `duna_pesada`: custo `1.4`
+- `entulho_ruina`: custo `1.8`
 
-- Mantem o jogo responsivo se o mapa crescer.
-- E simples de justificar em contraste com a solucao exata.
-- Permite discutir a diferenca entre resposta exata e aproximada.
+Com isso, a rota sugerida passa a refletir o mapa jogavel de verdade, e nao apenas a proximidade geometrica entre os pontos.
 
-**Complexidade:** `O(n^2)` no tempo com implementacao simples.
+## 3. Pathfinding entre dois pontos
 
-## Limitacoes da solucao de TSP
+Para calcular o custo entre dois pontos, o sistema usa busca em grade com heuristica, no estilo `A*`, sobre as celulas do mapa.
 
-- A forca bruta cresce muito rapido e nao serve para mapas grandes.
-- A heuristica de vizinho mais proximo nao garante a melhor rota possivel.
-- O projeto prioriza clareza didatica, nao performance de escala industrial.
+Essa etapa:
 
-## Por que a ordenacao do inventario foi escolhida
+- encontra um caminho valido entre dois pontos
+- evita obstaculos
+- soma custo diferente conforme o terreno atravessado
 
-A ordenacao foi escolhida porque o inventario ja e parte obrigatoria do gameplay. Ao permitir ordenar por peso, valor, raridade, nome ou tipo, o segundo problema computacional deixa de ser um detalhe tecnico e passa a apoiar uma decisao pratica do jogador.
+### Justificativa
 
-## Algoritmo de ordenacao recomendado
+- E uma solucao clara para mapas em grade.
+- Funciona bem com custo ponderado por celula.
+- Mantem a explicacao academica acessivel.
 
-Usar **mergesort**.
+### Complexidade
 
-Motivos:
+No pior caso, a busca visita boa parte das celulas da grade. Em termos praticos, o custo cresce com o numero de celulas exploradas e com a quantidade de vizinhos avaliados por celula.
+
+Para o escopo pequeno do mapa atual, isso e suficiente para manter boa resposta visual.
+
+### Limitacoes
+
+- Se o mapa crescer muito, o custo de recalcular muitos trechos tambem cresce.
+- A qualidade do resultado depende do modelo de grade usado.
+- O sistema ainda nao trata obstaculos dinamicos complexos.
+
+## 4. Estrategia de TSP adotada
+
+Depois de obter o custo entre os pontos, o jogo escolhe a ordem de visita usando duas estrategias:
+
+### Ate 8 pontos: solucao exata
+
+Quando ha ate `8` pontos restantes, o sistema testa todas as permutacoes possiveis e escolhe a melhor rota.
+
+### Justificativa
+
+- Garante resultado otimo.
+- E simples de justificar em contexto academico.
+- Funciona bem dentro do limite de pontos do MVP.
+
+### Complexidade
+
+- tempo: `O(n! * n)`
+
+O fator fatorial vem das permutacoes. O fator adicional `n` vem da avaliacao de cada rota candidata.
+
+### Limitacoes
+
+- Nao escala para muitos pontos.
+- Cresce rapidamente mesmo com pequenos aumentos em `n`.
+
+### Acima de 8 pontos: vizinho mais proximo
+
+Quando o numero de pontos ultrapassa o limite da busca exata, o sistema usa a heuristica do `vizinho mais proximo`.
+
+### Justificativa
+
+- Mantem o sistema responsivo.
+- E facil de explicar como contraste entre exato e aproximado.
+- Reduz bastante o custo computacional.
+
+### Complexidade
+
+- tempo: `O(n^2)`
+
+### Limitacoes
+
+- Nao garante a melhor rota global.
+- Pode ficar preso em decisoes locais boas, mas globalmente ruins.
+
+## 5. Ordenacao do inventario
+
+O segundo problema computacional do projeto aparece no inventario. O jogador pode ordenar os itens coletados por:
+
+- raridade
+- peso crescente
+- peso decrescente
+- valor crescente
+- valor decrescente
+
+O algoritmo escolhido foi `merge sort`.
+
+### Justificativa
 
 - Tem comportamento previsivel em `O(n log n)`.
-- E estavel, o que ajuda quando dois itens compartilham o mesmo criterio principal.
-- E facil de explicar academicamente.
+- E estavel, o que ajuda em desempates.
+- E facil de demonstrar e justificar para a banca.
 
-**Complexidade:** `O(n log n)` no tempo e `O(n)` de memoria auxiliar.
+### Complexidade
 
-## Limitacoes da ordenacao escolhida
+- tempo: `O(n log n)`
+- memoria auxiliar: `O(n)`
 
-- Usa memoria extra por causa da etapa de merge.
-- Para inventarios muito pequenos, algoritmos simples como insertion sort tambem funcionariam bem.
+### Limitacoes
 
-## Impacto na jogabilidade
+- Usa memoria extra.
+- Para listas muito pequenas, algoritmos mais simples tambem seriam aceitaveis.
 
-- O TSP ajuda o jogador a decidir para onde ir.
-- A ordenacao ajuda o jogador a decidir o que analisar primeiro no inventario.
-- Juntos, os algoritmos reforcam a ideia de coleta eficiente e organizacao inteligente dos recursos.
+## 6. Por que essas escolhas fazem sentido no MVP
 
+As escolhas foram feitas para equilibrar tres objetivos:
+
+1. manter o projeto jogavel
+2. tornar os algoritmos visiveis durante a demonstracao
+3. preservar explicacao academica clara
+
+No estado atual do jogo:
+
+- o `TSP` ajuda o jogador a decidir para onde ir
+- o `pathfinding` faz a rota respeitar o terreno real
+- o `merge sort` ajuda a organizar rapidamente o inventario
+
+## 7. Limites atuais do projeto
+
+Mesmo funcionando bem como MVP, o sistema ainda tem limites claros:
+
+- o mapa usa grade fixa e relativamente pequena
+- o numero de pontos ainda e controlado
+- nao ha eventos complexos alterando o mapa durante a rota
+- a ordenacao atua apenas no inventario, nao em sistemas mais amplos
+
+Esses limites sao aceitaveis porque o foco do projeto e demonstrar integracao entre algoritmo e gameplay, e nao construir um sistema de escala industrial.
