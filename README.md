@@ -24,7 +24,6 @@ Exploracao 2D com puzzle de rota e gerenciamento simples de inventario.
 - `E` para coletar itens
 - `I` para abrir ou fechar o inventario
 - `R` para recalcular a rota
-- `S` para trocar o criterio de ordenacao
 
 ## TSP no jogo
 

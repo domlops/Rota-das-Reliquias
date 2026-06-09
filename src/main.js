@@ -1,5 +1,6 @@
 const canvas = document.getElementById("gameCanvas");
 const context = canvas.getContext("2d");
+const inventoryButton = document.getElementById("inventoryButton");
 const newGameButton = document.getElementById("newGameButton");
 const routeButton = document.getElementById("routeButton");
 const routeModeLabel = document.getElementById("routeMode");
@@ -12,6 +13,15 @@ const inventoryStatusLabel = document.getElementById("inventoryStatus");
 const generationStatusLabel = document.getElementById("generationStatus");
 const interactionStatusLabel = document.getElementById("interactionStatus");
 const lastCollectedItemLabel = document.getElementById("lastCollectedItem");
+const inventoryOverlay = document.getElementById("inventoryOverlay");
+const closeInventoryButton = document.getElementById("closeInventoryButton");
+const inventoryTotalCountLabel = document.getElementById("inventoryTotalCount");
+const inventoryTotalWeightLabel = document.getElementById("inventoryTotalWeight");
+const inventoryTotalValueLabel = document.getElementById("inventoryTotalValue");
+const inventorySortSelect = document.getElementById("inventorySortSelect");
+const inventoryEmptyState = document.getElementById("inventoryEmptyState");
+const inventoryList = document.getElementById("inventoryList");
+const inventoryListShell = document.querySelector(".inventory-list-shell");
 
 const colors = {
   grid: "rgba(31, 28, 24, 0.12)",
@@ -39,6 +49,8 @@ const keyState = {
 
 const state = {
   showRoute: false,
+  inventoryOpen: false,
+  inventorySortCriterion: "raridade",
   generationCount: 0,
   base: null,
   pickupPoints: [],
@@ -64,6 +76,7 @@ const worldBounds = {
 };
 
 let lastFrameTime = performance.now();
+const inventorySortCriteria = window.inventorySortSystem.supportedCriteria;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -104,6 +117,14 @@ function getCollectedItemCount() {
 
 function getStoredInventoryCount() {
   return state.inventory.getCount();
+}
+
+function getInventoryItems() {
+  return state.inventory.getItems();
+}
+
+function getSortedInventoryItems() {
+  return window.inventorySortSystem.mergeSort(getInventoryItems(), state.inventorySortCriterion);
 }
 
 function getRoutePreview() {
@@ -423,6 +444,109 @@ function updateInventoryLabel() {
   inventoryStatusLabel.textContent = `${itemCount} item(ns) armazenado(s)`;
 }
 
+function formatWeight(weight) {
+  return `${weight.toFixed(1)} kg`;
+}
+
+function capitalize(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function createInventoryCardMarkup(item) {
+  return `
+    <article class="inventory-card">
+      <div class="inventory-card-header">
+        <div class="inventory-card-title">
+          <h3>${item.nome}</h3>
+          <span class="inventory-card-subtitle">${capitalize(item.tipo)} | Coletado em ${item.coletadoEm ?? "-"}</span>
+        </div>
+        <span class="inventory-rarity">${capitalize(item.raridade)}</span>
+      </div>
+      <div class="inventory-meta">
+        <div class="inventory-meta-item">
+          <span>Valor</span>
+          <strong>${item.valor}</strong>
+        </div>
+        <div class="inventory-meta-item">
+          <span>Peso</span>
+          <strong>${formatWeight(item.peso)}</strong>
+        </div>
+        <div class="inventory-meta-item">
+          <span>ID</span>
+          <strong>${item.id}</strong>
+        </div>
+      </div>
+      <p class="inventory-description">${item.descricao}</p>
+    </article>
+  `;
+}
+
+function syncInventorySortControl() {
+  inventorySortSelect.value = state.inventorySortCriterion;
+}
+
+function renderInventory() {
+  const items = getInventoryItems();
+  const sortedItems = getSortedInventoryItems();
+  const totalWeight = items.reduce((sum, item) => sum + item.peso, 0);
+  const totalValue = items.reduce((sum, item) => sum + item.valor, 0);
+
+  syncInventorySortControl();
+  inventoryTotalCountLabel.textContent = String(items.length);
+  inventoryTotalWeightLabel.textContent = formatWeight(totalWeight);
+  inventoryTotalValueLabel.textContent = String(totalValue);
+
+  if (items.length === 0) {
+    inventoryEmptyState.hidden = false;
+    inventoryList.innerHTML = "";
+    return;
+  }
+
+  inventoryEmptyState.hidden = true;
+  inventoryList.innerHTML = sortedItems.map(createInventoryCardMarkup).join("");
+}
+
+function syncInventoryOverlay() {
+  renderInventory();
+  inventoryOverlay.classList.toggle("inventory-overlay-hidden", !state.inventoryOpen);
+  inventoryOverlay.setAttribute("aria-hidden", String(!state.inventoryOpen));
+  inventoryButton.textContent = state.inventoryOpen ? "Fechar inventario" : "Inventario";
+}
+
+function setInventoryOpen(isOpen) {
+  if (state.inventoryOpen === isOpen) {
+    return;
+  }
+
+  resetInputState();
+  state.inventoryOpen = isOpen;
+  syncInventoryOverlay();
+}
+
+function toggleInventory() {
+  setInventoryOpen(!state.inventoryOpen);
+}
+
+function setInventorySortCriterion(criterion) {
+  if (!inventorySortCriteria.includes(criterion)) {
+    syncInventorySortControl();
+    return;
+  }
+
+  if (state.inventorySortCriterion === criterion) {
+    syncInventorySortControl();
+    return;
+  }
+
+  state.inventorySortCriterion = criterion;
+
+  if (inventoryListShell) {
+    inventoryListShell.scrollTop = 0;
+  }
+
+  renderInventory();
+}
+
 function updateGenerationLabel() {
   generationStatusLabel.textContent = `Jogo ${state.generationCount}`;
 }
@@ -526,6 +650,10 @@ function getMovementVector() {
 }
 
 function updatePlayerPosition(deltaTime) {
+  if (state.inventoryOpen) {
+    return;
+  }
+
   const movement = getMovementVector();
   const { player } = state;
 
@@ -582,6 +710,7 @@ function collectNearbyItem() {
   item.coletado = true;
   syncPickupStates();
   state.lastCollectedItemName = `${item.nome} coletado em ${pickupPoint.id}`;
+  syncInventoryOverlay();
   return true;
 }
 
@@ -607,6 +736,7 @@ function startNewGame() {
 
   resetInputState();
   state.showRoute = false;
+  state.inventoryOpen = false;
   state.generationCount += 1;
   state.base = session.baseNode;
   state.pickupPoints = session.pickupPoints;
@@ -619,6 +749,7 @@ function startNewGame() {
   state.player.y = session.playerStart.y;
   state.player.directionLabel = "Parado";
   updateStatusPanel();
+  syncInventoryOverlay();
   render();
 }
 
@@ -637,9 +768,26 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (event.key.toLowerCase() === "i") {
+    toggleInventory();
+    event.preventDefault();
+    return;
+  }
+
+  if (event.key === "Escape" && state.inventoryOpen) {
+    setInventoryOpen(false);
+    event.preventDefault();
+    return;
+  }
+
+  if (state.inventoryOpen) {
+    return;
+  }
+
   if (event.key.toLowerCase() === "e") {
     collectNearbyItem();
     updateStatusPanel();
+    syncInventoryOverlay();
     render();
     event.preventDefault();
     return;
@@ -659,9 +807,27 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+inventoryOverlay.addEventListener("click", (event) => {
+  if (event.target === inventoryOverlay) {
+    setInventoryOpen(false);
+  }
+});
+
 routeButton.addEventListener("click", () => {
   state.showRoute = !state.showRoute;
   updateStatusPanel();
+});
+
+inventoryButton.addEventListener("click", () => {
+  toggleInventory();
+});
+
+closeInventoryButton.addEventListener("click", () => {
+  setInventoryOpen(false);
+});
+
+inventorySortSelect.addEventListener("change", (event) => {
+  setInventorySortCriterion(event.target.value);
 });
 
 newGameButton.addEventListener("click", () => {

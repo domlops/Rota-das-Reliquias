@@ -19,6 +19,9 @@
             </p>
           </div>
           <div class="topbar-actions">
+            <button id="inventoryButton" class="secondary-button" type="button">
+              Inventario
+            </button>
             <button id="newGameButton" class="secondary-button" type="button">
               Novo jogo
             </button>
@@ -100,7 +103,6 @@
             <li><strong>E:</strong> coletar item</li>
             <li><strong>I:</strong> abrir inventario</li>
             <li><strong>R:</strong> recalcular rota</li>
-            <li><strong>S:</strong> alterar criterio de ordenacao</li>
           </ul>
         </section>
 
@@ -112,13 +114,63 @@
             <li>O painel deve atualizar coordenadas e direcao.</li>
             <li>Use `Novo jogo` para redistribuir base, itens e inicio.</li>
             <li>Fique perto de um ponto e pressione `E` para coletar.</li>
+            <li>Pressione `I` para abrir e fechar o inventario.</li>
+            <li>Use `Ordenar por` no inventario para alternar o criterio de exibicao dos itens.</li>
           </ul>
         </section>
       </aside>
     </main>
 
+    <section id="inventoryOverlay" class="inventory-overlay inventory-overlay-hidden" aria-hidden="true">
+      <div class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="inventoryTitle">
+        <header class="inventory-header">
+          <div>
+            <p class="inventory-kicker">Gerenciamento de itens coletados</p>
+            <h2 id="inventoryTitle">Inventario</h2>
+          </div>
+          <button id="closeInventoryButton" class="secondary-button inventory-close-button" type="button">
+            Fechar
+          </button>
+        </header>
+
+        <section class="inventory-summary">
+          <div class="inventory-summary-item">
+            <span>Total de itens</span>
+            <strong id="inventoryTotalCount">0</strong>
+          </div>
+          <div class="inventory-summary-item">
+            <span>Peso acumulado</span>
+            <strong id="inventoryTotalWeight">0.0</strong>
+          </div>
+          <div class="inventory-summary-item">
+            <span>Valor acumulado</span>
+            <strong id="inventoryTotalValue">0</strong>
+          </div>
+        </section>
+
+        <section class="inventory-toolbar" aria-label="Controles de ordenacao do inventario">
+          <label class="inventory-sort-control" for="inventorySortSelect">
+            <span>Ordenar por</span>
+            <select id="inventorySortSelect" class="inventory-sort-select">
+              <option value="raridade">Raridade (mais rara primeiro)</option>
+              <option value="peso">Peso (maior primeiro)</option>
+              <option value="valor">Valor (maior primeiro)</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="inventory-list-shell">
+          <div id="inventoryEmptyState" class="inventory-empty-state">
+            Nenhum item coletado ainda. Explore o mapa e pressione `E` perto de um ponto de coleta.
+          </div>
+          <div id="inventoryList" class="inventory-list" aria-live="polite"></div>
+        </section>
+      </div>
+    </section>
+
     <script src="src/data/game-data.js"></script>
     <script src="src/systems/inventory.js"></script>
+    <script src="src/systems/inventory-sort.js"></script>
     <script src="src/main.js"></script>
   </body>
 </html>
